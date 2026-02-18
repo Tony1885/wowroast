@@ -1,0 +1,107 @@
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  body {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    background-color: #07070a;
+    color: #e2e8f0;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background-color: rgba(96, 165, 250, 0.3);
+    color: #fff;
+  }
+  ::-webkit-scrollbar {
+    width: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(96, 165, 250, 0.15);
+    border-radius: 3px;
+  }
+}
+
+@layer components {
+  .font-cinzel {
+    font-family: "Cinzel", serif;
+  }
+
+  .font-mono {
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  .glass-card {
+    @apply rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-2xl;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .btn-roast {
+    @apply relative overflow-hidden rounded-2xl px-10 py-5 font-bold text-white transition-all duration-500 tracking-wider uppercase;
+    background: linear-gradient(135deg, #3b82f6, #6366f1, #3b82f6);
+    background-size: 200% 200%;
+    animation: btnShift 3s ease-in-out infinite;
+    box-shadow: 0 0 30px rgba(96, 165, 250, 0.2),
+      0 0 60px rgba(96, 165, 250, 0.05);
+  }
+  .btn-roast:hover {
+    @apply scale-[1.02];
+    box-shadow: 0 0 50px rgba(96, 165, 250, 0.35),
+      0 0 100px rgba(96, 165, 250, 0.1);
+  }
+  .btn-roast:disabled {
+    @apply opacity-40 cursor-not-allowed scale-100;
+    box-shadow: none;
+  }
+
+  .text-flame {
+    background: linear-gradient(135deg, #e2e8f0, #60a5fa, #818cf8, #60a5fa, #e2e8f0);
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: flameShift 4s ease-in-out infinite;
+  }
+
+  .ember-bg {
+    background-image: radial-gradient(
+      rgba(96, 165, 250, 0.03) 1px,
+      transparent 1px
+    );
+    background-size: 40px 40px;
+  }
+}
+
+@keyframes flameShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes btnShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes typewriter-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.cursor-blink::after {
+  content: "|";
+  animation: typewriter-blink 0.7s step-end infinite;
+  color: #60a5fa;
+  font-weight: 300;
+}
