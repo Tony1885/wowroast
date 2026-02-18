@@ -9,15 +9,24 @@ import LoadingState from "@/components/LoadingState";
 import { RoastResponse } from "@/lib/types";
 
 type ViewState = "search" | "loading" | "result";
+type Lang = "fr" | "en";
 
 export default function HomePage() {
   const [view, setView] = useState<ViewState>("search");
   const [result, setResult] = useState<RoastResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lang, setLang] = useState<Lang>("en");
 
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const taglineRef = useRef<HTMLParagraphElement>(null);
+
+  // Detect browser language on mount
+  useEffect(() => {
+    if (navigator.language?.startsWith("fr")) {
+      setLang("fr");
+    }
+  }, []);
 
   // Hero entrance animation
   useEffect(() => {
@@ -49,19 +58,17 @@ export default function HomePage() {
     setError(null);
 
     const startTime = Date.now();
-    const MIN_LOADING_MS = 8000; // Minimum 8 seconds to enjoy the loading punchlines
+    const MIN_LOADING_MS = 8000;
 
     try {
-      const locale = navigator.language || "en";
       const res = await fetch("/api/roast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, realm, region, locale }),
+        body: JSON.stringify({ name, realm, region, locale: lang }),
       });
 
       const data: RoastResponse = await res.json();
 
-      // Wait remaining time if API was fast
       const elapsed = Date.now() - startTime;
       if (elapsed < MIN_LOADING_MS) {
         await new Promise((r) => setTimeout(r, MIN_LOADING_MS - elapsed));
@@ -89,14 +96,32 @@ export default function HomePage() {
 
   return (
     <SmoothScroll>
-      {/* Loading - Full page takeover */}
-      {view === "loading" && <LoadingState />}
+      {/* Loading */}
+      {view === "loading" && <LoadingState lang={lang} />}
 
       {/* Search View */}
       {view === "search" && (
         <div className="min-h-screen ember-bg flex flex-col">
           {/* Ambient glow */}
           <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-500/[0.03] rounded-full blur-[150px] pointer-events-none" />
+
+          {/* Language toggle - top right */}
+          <div className="absolute top-6 right-6 z-10">
+            <button
+              onClick={() => setLang(lang === "fr" ? "en" : "fr")}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02]
+                         text-gray-500 hover:text-white hover:border-white/[0.12] transition-all duration-300
+                         text-sm font-mono tracking-wider"
+            >
+              <span className={lang === "fr" ? "text-white" : "text-gray-600"}>
+                FR
+              </span>
+              <span className="text-gray-700">/</span>
+              <span className={lang === "en" ? "text-white" : "text-gray-600"}>
+                EN
+              </span>
+            </button>
+          </div>
 
           <div className="flex-1 flex flex-col items-center justify-center px-4 py-20">
             <h1
@@ -120,7 +145,7 @@ export default function HomePage() {
               Roast me !
             </p>
 
-            <SearchForm onSearch={handleSearch} isLoading={false} />
+            <SearchForm onSearch={handleSearch} isLoading={false} lang={lang} />
 
             {error && (
               <div className="mt-8 glass-card p-5 max-w-xl w-full text-center border-red-500/20">
@@ -132,7 +157,9 @@ export default function HomePage() {
           <footer className="text-center py-8 text-gray-800 text-[11px] font-mono tracking-wider">
             <p>POWERED BY RAIDER.IO, WARCRAFT LOGS & AI</p>
             <p className="mt-1 text-gray-800/60">
-              THIS IS SATIRE. WE DON&apos;T CARE ABOUT YOUR FEELINGS.
+              {lang === "fr"
+                ? "C'EST DE LA SATIRE. VOS SENTIMENTS NE NOUS CONCERNENT PAS."
+                : "THIS IS SATIRE. WE DON'T CARE ABOUT YOUR FEELINGS."}
             </p>
           </footer>
         </div>
@@ -140,7 +167,7 @@ export default function HomePage() {
 
       {/* Result View */}
       {view === "result" && result?.data && (
-        <RoastResult data={result.data} onBack={handleBack} />
+        <RoastResult data={result.data} onBack={handleBack} lang={lang} />
       )}
     </SmoothScroll>
   );

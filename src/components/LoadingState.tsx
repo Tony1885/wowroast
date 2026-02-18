@@ -26,7 +26,34 @@ const PUNCHLINES = [
   "Preparing emotional damage...",
 ];
 
-export default function LoadingState() {
+interface LoadingProps {
+  lang: "fr" | "en";
+}
+
+const PUNCHLINES_FR = [
+  "On fouille ton armurerie... ca va piquer.",
+  "On regarde tes parses... oh non.",
+  "Ton GM est en train de regarder.",
+  "Inspection de ton stuff... choix interessants.",
+  "Lecture de tes logs... aie.",
+  "On compte tes cles depletees...",
+  "Ton heal vient de quitter le groupe.",
+  "Meme le mannequin d'entrainement est decu.",
+  "Chargement de la brutalite maximale...",
+  "On demande l'avis de ton RL...",
+  "Parse gris detecte. Generation d'insultes...",
+  "Ton DPS fait pleurer le tank.",
+  "On verifie si t'as deja time une cle...",
+  "Ta rotation a demande le divorce.",
+  "On a trouve tes logs. On regrette.",
+  "Calcul precis de ta nullite...",
+  "Meme les groupes LFR te refuseraient.",
+  "Ton pet fait plus de degats que toi.",
+  "Preparation des degats emotionnels...",
+  "Cross-reference de ta honte avec Raider.io...",
+];
+
+export default function LoadingState({ lang }: LoadingProps) {
   const [displayedLines, setDisplayedLines] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const linesRef = useRef<HTMLDivElement>(null);
@@ -42,7 +69,8 @@ export default function LoadingState() {
   }, []);
 
   useEffect(() => {
-    const shuffled = [...PUNCHLINES].sort(() => Math.random() - 0.5);
+    const source = lang === "fr" ? PUNCHLINES_FR : PUNCHLINES;
+    const shuffled = [...source].sort(() => Math.random() - 0.5);
     let index = 0;
 
     // Show first line immediately
@@ -113,7 +141,7 @@ export default function LoadingState() {
       </div>
 
       <p className="text-gray-800 text-xs mt-14 font-mono tracking-[0.25em]">
-        ANALYZING CHARACTER DATA...
+        {lang === "fr" ? "ANALYSE DU PERSONNAGE EN COURS..." : "ANALYZING CHARACTER DATA..."}
       </p>
     </div>
   );

@@ -8,6 +8,7 @@ import { RoastResponse } from "@/lib/types";
 interface RoastResultProps {
   data: NonNullable<RoastResponse["data"]>;
   onBack: () => void;
+  lang: "fr" | "en";
 }
 
 function useTypewriter(text: string, speed: number = 8) {
@@ -32,7 +33,7 @@ function useTypewriter(text: string, speed: number = 8) {
   return { displayed, done };
 }
 
-export default function RoastResult({ data, onBack }: RoastResultProps) {
+export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
   const { character, mythicPlus, raidProgression, roast, roastTitle } = data;
   const classColor = getClassColor(character.class);
   const latestRaid = raidProgression[0];
@@ -119,7 +120,9 @@ export default function RoastResult({ data, onBack }: RoastResultProps) {
             d="M15 19l-7-7 7-7"
           />
         </svg>
-        <span className="text-sm font-mono tracking-wider">BACK</span>
+        <span className="text-sm font-mono tracking-wider">
+          {lang === "fr" ? "RETOUR" : "BACK"}
+        </span>
       </button>
 
       {/* Main content - wide layout */}
@@ -273,7 +276,7 @@ export default function RoastResult({ data, onBack }: RoastResultProps) {
                        hover:text-blue-400 hover:border-blue-400/20 transition-all duration-300
                        text-sm font-mono tracking-[0.15em] uppercase"
           >
-            Roast Another
+            {lang === "fr" ? "Roast un autre" : "Roast Another"}
           </button>
         </div>
       </div>
