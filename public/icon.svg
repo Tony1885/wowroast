@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#07070a"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="50%" style="stop-color:#818cf8"/>
+      <stop offset="100%" style="stop-color:#e2e8f0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Flame/fire shape -->
+  <path d="M256 80c0 0-100 120-100 220c0 55.2 44.8 100 100 100s100-44.8 100-100C356 200 256 80 256 80z
+           M256 370c-38.6 0-70-31.4-70-70c0-60 70-150 70-150s70 90 70 150C326 338.6 294.6 370 256 370z"
+        fill="url(#flame)" opacity="0.9"/>
+  <!-- Inner flame -->
+  <path d="M256 180c0 0-45 60-45 120c0 24.8 20.2 45 45 45s45-20.2 45-45C301 240 256 180 256 180z"
+        fill="#e2e8f0" opacity="0.6"/>
+  <!-- W letter -->
+  <text x="256" y="340" text-anchor="middle" font-family="serif" font-weight="900" font-size="140" fill="#e2e8f0" opacity="0.9">W</text>
+</svg>

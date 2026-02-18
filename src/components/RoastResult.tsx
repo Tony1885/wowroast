@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import gsap from "gsap";
 import { getClassColor } from "@/lib/class-data";
 import { RoastResponse } from "@/lib/types";
@@ -43,6 +43,15 @@ export default function RoastResult({ data, onBack }: RoastResultProps) {
   const roastBoxRef = useRef<HTMLDivElement>(null);
 
   const { displayed: typedRoast, done: typingDone } = useTypewriter(roast, 8);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    const textToCopy = `${roastTitle}\n\n${roast}\n\n— WoWRoast.com`;
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [roastTitle, roast]);
 
   // Entry animations
   useEffect(() => {
@@ -220,14 +229,39 @@ export default function RoastResult({ data, onBack }: RoastResultProps) {
             <p className="text-[11px] text-gray-800 font-mono tracking-wider">
               ROASTED BY AI &bull; DATA FROM RAIDER.IO & WCL
             </p>
-            <a
-              href={character.profileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] text-blue-400/30 hover:text-blue-400 transition-colors font-mono tracking-wider"
-            >
-              RAIDER.IO PROFILE
-            </a>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleCopy}
+                disabled={!typingDone}
+                className="flex items-center gap-1.5 text-[11px] font-mono tracking-wider
+                           text-blue-400/30 hover:text-blue-400 transition-colors
+                           disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {copied ? (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    COPIED
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    COPY ROAST
+                  </>
+                )}
+              </button>
+              <a
+                href={character.profileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-blue-400/30 hover:text-blue-400 transition-colors font-mono tracking-wider"
+              >
+                RAIDER.IO
+              </a>
+            </div>
           </div>
         </div>
 
