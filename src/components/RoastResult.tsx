@@ -34,7 +34,7 @@ function useTypewriter(text: string, speed: number = 8) {
 }
 
 export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
-  const { character, mythicPlus, raidProgression, roast, roastTitle } = data;
+  const { character, mythicPlus, raidProgression, roast, roastTitle, punchline } = data;
   const classColor = getClassColor(character.class);
   const latestRaid = raidProgression[0];
 
@@ -42,53 +42,42 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const roastBoxRef = useRef<HTMLDivElement>(null);
+  const shareCardRef = useRef<HTMLDivElement>(null);
 
   const { displayed: typedRoast, done: typingDone } = useTypewriter(roast, 8);
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
 
   const handleShare = useCallback(async () => {
+    if (!shareCardRef.current) return;
     setSharing(true);
     try {
-      // Take first paragraph of roast, truncate to 280 chars
-      const firstPara = roast.split("\n\n")[0] ?? roast;
-      const snippet = firstPara.length > 280 ? firstPara.slice(0, 277) + "..." : firstPara;
-
-      const params = new URLSearchParams({
-        name:    character.name,
-        realm:   character.realm,
-        region:  character.region,
-        class:   character.class,
-        spec:    character.spec,
-        ilvl:    String(character.ilvl),
-        mplus:   String(mythicPlus.score.toFixed(0)),
-        title:   roastTitle,
-        snippet,
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(shareCardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#0a0a0f",
+        logging: false,
       });
-
-      const res = await fetch(`/api/og?${params.toString()}`);
-      if (!res.ok) throw new Error("Failed to generate image");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const url = canvas.toDataURL("image/png");
       const a = document.createElement("a");
       a.href = url;
       a.download = `wowroast-${character.name.toLowerCase()}.png`;
       a.click();
-      URL.revokeObjectURL(url);
     } catch {
       // Silently fail
     } finally {
       setSharing(false);
     }
-  }, [roastTitle, roast, character, mythicPlus]);
+  }, [character, roast, roastTitle, punchline]);
 
   const handleCopy = useCallback(() => {
-    const textToCopy = `${roastTitle}\n\n${roast}\n\n— WoWRoast.com`;
+    const textToCopy = `${roastTitle}\n\n${roast}${punchline ? `\n\n${punchline}` : ""}\n\n— WoWRoast.com`;
     navigator.clipboard.writeText(textToCopy).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  }, [roastTitle, roast]);
+  }, [roastTitle, roast, punchline]);
 
   // Entry animations
   useEffect(() => {
@@ -264,6 +253,15 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
             {typedRoast}
           </div>
 
+          {/* Punchline — shown after typing is done */}
+          {typingDone && punchline && (
+            <div className="mt-8 pt-6 border-t border-white/[0.06]">
+              <p className="text-base md:text-lg font-semibold text-blue-300 leading-relaxed">
+                {punchline}
+              </p>
+            </div>
+          )}
+
           <div className="mt-8 pt-6 border-t border-white/[0.04] flex items-center justify-between">
             <p className="text-[11px] text-gray-800 font-mono tracking-wider">
               ROASTED BY AI &bull; DATA FROM RAIDER.IO & WCL
@@ -339,6 +337,66 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
             {lang === "fr" ? "Roast un autre" : "Roast Another"}
           </button>
         </div>
+      </div>
+
+      {/* ── Hidden share card captured by html2canvas ── */}
+      <div
+        ref={shareCardRef}
+        style={{
+          position: "fixed",
+          left: "-9999px",
+          top: 0,
+          width: "800px",
+          background: "#0a0a0f",
+          padding: "48px",
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
+          <span style={{ color: "#374151", fontSize: "11px", letterSpacing: "0.2em" }}>WOWROAST.COM</span>
+          <span style={{ color: classColor, fontSize: "11px", letterSpacing: "0.15em" }}>
+            {character.spec.toUpperCase()} {character.class.toUpperCase()}
+          </span>
+        </div>
+
+        {/* Character info */}
+        <div style={{ marginBottom: "28px" }}>
+          <p style={{ color: classColor, fontSize: "22px", fontWeight: "bold", marginBottom: "6px" }}>
+            {character.name}
+          </p>
+          <p style={{ color: "#6b7280", fontSize: "13px" }}>
+            {character.realm} ({character.region.toUpperCase()}) &nbsp;·&nbsp; iLvl {character.ilvl} &nbsp;·&nbsp; M+ {mythicPlus.score.toFixed(0)}
+          </p>
+        </div>
+
+        {/* Roast title */}
+        <p style={{ color: "#818cf8", fontSize: "24px", fontWeight: "900", marginBottom: "28px", lineHeight: "1.3" }}>
+          {roastTitle}
+        </p>
+
+        {/* Separator */}
+        <div style={{ height: "1px", background: "rgba(255,255,255,0.06)", marginBottom: "28px" }} />
+
+        {/* Roast text */}
+        <p style={{ color: "#d1d5db", fontSize: "15px", lineHeight: "1.9", whiteSpace: "pre-line" }}>
+          {roast}
+        </p>
+
+        {/* Punchline */}
+        {punchline && (
+          <>
+            <div style={{ height: "1px", background: "rgba(255,255,255,0.06)", margin: "28px 0" }} />
+            <p style={{ color: "#60a5fa", fontSize: "17px", fontWeight: "600", lineHeight: "1.6" }}>
+              {punchline}
+            </p>
+          </>
+        )}
+
+        {/* Footer */}
+        <p style={{ color: "#1f2937", fontSize: "11px", marginTop: "32px", letterSpacing: "0.15em" }}>
+          ROASTED BY AI · DATA FROM RAIDER.IO & WCL · WOWROAST.COM
+        </p>
       </div>
     </div>
   );

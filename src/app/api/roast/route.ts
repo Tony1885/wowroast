@@ -167,6 +167,41 @@ export async function POST(request: NextRequest) {
     const charGender = sanitizeForPrompt(profile.gender);
     const charRealm = sanitizeForPrompt(profile.realm);
 
+    // === French WoW class / spec official names ===
+    const CLASS_FR: Record<string, string> = {
+      "Death Knight": "Chevalier de la mort",
+      "Demon Hunter": "Chasseur de démons",
+      "Druid": "Druide",
+      "Evoker": "Évocateur",
+      "Hunter": "Chasseur",
+      "Mage": "Mage",
+      "Monk": "Moine",
+      "Paladin": "Paladin",
+      "Priest": "Prêtre",
+      "Rogue": "Voleur",
+      "Shaman": "Chaman",
+      "Warlock": "Démoniste",
+      "Warrior": "Guerrier",
+    };
+    const SPEC_FR: Record<string, string> = {
+      "Arms": "Armes", "Fury": "Fureur", "Protection": "Protection",
+      "Holy": "Sacré", "Retribution": "Rétribution",
+      "Blood": "Sang", "Frost": "Givre", "Unholy": "Impie",
+      "Havoc": "Dévastation", "Vengeance": "Vengeance",
+      "Balance": "Équilibre", "Feral": "Farouche", "Guardian": "Gardien", "Restoration": "Restauration",
+      "Devastation": "Dévastation", "Preservation": "Préservation", "Augmentation": "Augmentation",
+      "Beast Mastery": "Maîtrise des bêtes", "Marksmanship": "Tir", "Survival": "Survie",
+      "Arcane": "Arcane", "Fire": "Feu",
+      "Brewmaster": "Maître-brasseur", "Mistweaver": "Tissevent", "Windwalker": "Marche-vent",
+      "Discipline": "Discipline", "Shadow": "Ombre",
+      "Assassination": "Assassinat", "Outlaw": "Hors-la-loi", "Subtlety": "Finesse",
+      "Elemental": "Élémentaire", "Enhancement": "Amélioration",
+      "Affliction": "Affliction", "Demonology": "Démonologie", "Destruction": "Destruction",
+    };
+
+    const displaySpec  = lang === "French" ? (SPEC_FR[charSpec]  ?? charSpec)  : charSpec;
+    const displayClass = lang === "French" ? (CLASS_FR[charClass] ?? charClass) : charClass;
+
     // Pick a random roast angle so every roast feels different
     const roastAngles = [
       "a washed-up veteran who peaked in Wrath and never recovered, now bitter and condescending",
@@ -187,7 +222,7 @@ Your roast must feel completely different from any other roast — vary the stru
 WRITE THE ENTIRE ROAST IN ${lang}.
 
 CHARACTER DATA:
-${charName} — ${charSpec} ${charClass} (${charRace}, ${charFaction})
+${charName} — ${displaySpec} ${displayClass} (${charRace}, ${charFaction})
 Realm: ${charRealm} (${regionLower.toUpperCase()})
 Item Level: ${ilvl} | Achievement Points: ${profile.achievement_points ?? "unknown"} | Honorable Kills: ${profile.honorable_kills}
 
@@ -210,10 +245,13 @@ RULES:
 - 4 paragraphs. Each must attack a different weakness: class/spec choices, M+ performance, raid progression, overall life choices.
 - The last sentence must be a fake compliment so backhanded it almost sounds like an insult again.
 - If writing in French: use "hauts faits", "score Mythique+", "donjon mythique", "incursion", "déplétion" — NEVER "réalisations"
+- If writing in French: ALWAYS use official French WoW class/spec names as given in the character data. NEVER translate them word-for-word (ex: "Protection" reste "Protection", pas "protège"; "Sacré" not "saint")
+- If writing in French: TUTOIE the player at all times (tu/toi/ton/ta). NEVER use "vous".
 - DO NOT use the character name in the roastTitle
+- Add a "punchline" field: ${lang === "French" ? 'une PUNCHLINE FINALE courte (1-2 phrases), ultra-brutale, avec emojis, en tutoiement. Donne un conseil de survie totalement impitoyable. Ex style: "💀 Conseil : désinstalle le jeu et va faire du bénévolat — au moins tu seras utile quelque part."' : 'a final deadpan one-liner, brutally specific to their stats. No emojis.'}
 
 Respond ONLY with valid JSON, no markdown:
-{"roastTitle": "Max 7 words. Devastating. No character name. In ${lang}.", "roast": "4 paragraphs. Brutal. Specific. Varied. In ${lang}."}`;
+{"roastTitle": "Max 7 words. Devastating. No character name. In ${lang}.", "roast": "4 paragraphs. Brutal. Specific. Varied. In ${lang}. Tutoiement if French.", "punchline": "${lang === "French" ? "1-2 phrases. Emojis. Tutoiement. Conseil brutal." : "One deadpan final line. No emojis."}"}`;
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -291,6 +329,7 @@ Respond ONLY with valid JSON, no markdown:
         wclRankings,
         roast: aiResult.roast,
         roastTitle: aiResult.roastTitle,
+        punchline: aiResult.punchline ?? undefined,
       },
     });
   } catch (error: any) {

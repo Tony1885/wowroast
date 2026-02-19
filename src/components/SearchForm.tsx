@@ -1,17 +1,8 @@
 "use client";
 
-import { useState, FormEvent, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import gsap from "gsap";
-
-interface CharacterResult {
-  name: string;
-  realm: string;
-  realmSlug: string;
-  region: string;
-  class: string;
-  spec: string;
-  faction: string;
-}
+import { REALMS_BY_REGION, Realm } from "@/lib/realms";
 
 interface SearchFormProps {
   onSearch: (name: string, realm: string, region: string) => void;
@@ -19,246 +10,192 @@ interface SearchFormProps {
   lang: "fr" | "en";
 }
 
-const CLASS_COLORS: Record<string, string> = {
-  "Death Knight": "text-red-400",
-  "Demon Hunter": "text-purple-400",
-  "Druid": "text-orange-400",
-  "Evoker": "text-teal-400",
-  "Hunter": "text-green-400",
-  "Mage": "text-sky-400",
-  "Monk": "text-emerald-400",
-  "Paladin": "text-yellow-400",
-  "Priest": "text-gray-200",
-  "Rogue": "text-yellow-500",
-  "Shaman": "text-blue-400",
-  "Warlock": "text-violet-400",
-  "Warrior": "text-amber-600",
-};
+const REGIONS = ["US", "EU", "KR", "TW"];
 
 export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProps) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<CharacterResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const [searched, setSearched] = useState(false); // a search was completed
-  const [error, setError] = useState("");
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [region, setRegion] = useState("");
+  const [realm, setRealm] = useState<Realm | null>(null);
+  const [realmQuery, setRealmQuery] = useState("");
+  const [charName, setCharName] = useState("");
 
-  const formRef = useRef<HTMLFormElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const realmInputRef = useRef<HTMLInputElement>(null);
+  const charInputRef = useRef<HTMLInputElement>(null);
 
+  // GSAP entrance animation
   useEffect(() => {
-    if (formRef.current) {
+    if (wrapperRef.current) {
       gsap.fromTo(
-        formRef.current,
+        wrapperRef.current,
         { opacity: 0, y: 30 },
         { opacity: 1, y: 0, duration: 0.8, delay: 0.6, ease: "power3.out" }
       );
     }
   }, []);
 
+  // Autofocus realm filter when reaching step 2
   useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
+    if (step === 2) {
+      setTimeout(() => realmInputRef.current?.focus(), 50);
     }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
+  }, [step]);
 
-  const searchCharacters = useCallback(async (q: string) => {
-    // Cancel previous in-flight request
-    if (abortRef.current) abortRef.current.abort();
-    abortRef.current = new AbortController();
-
-    try {
-      const res = await fetch(
-        `/api/search/characters?q=${encodeURIComponent(q)}`,
-        { signal: abortRef.current.signal }
-      );
-      const data = await res.json();
-      const list: CharacterResult[] = data.results ?? [];
-      setResults(list);
-      setShowDropdown(true);
-      setSearched(true);
-      setActiveIndex(-1);
-    } catch {
-      // Aborted — ignore
-    } finally {
-      setIsSearching(false);
+  // Autofocus char name when reaching step 3
+  useEffect(() => {
+    if (step === 3) {
+      setTimeout(() => charInputRef.current?.focus(), 50);
     }
-  }, []);
+  }, [step]);
 
-  function handleQueryChange(value: string) {
-    setQuery(value);
-    setError("");
-    setActiveIndex(-1);
-    setSearched(false);
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (value.trim().length < 3) {
-      setIsSearching(false);
-      setResults([]);
-      setShowDropdown(false);
-      return;
-    }
-
-    // Show spinner immediately
-    setIsSearching(true);
-    debounceRef.current = setTimeout(() => searchCharacters(value.trim()), 200);
+  function pickRegion(r: string) {
+    setRegion(r);
+    setRealm(null);
+    setRealmQuery("");
+    setStep(2);
   }
 
-  function selectCharacter(char: CharacterResult) {
-    setShowDropdown(false);
-    setResults([]);
-    setSearched(false);
-    setQuery(`${char.name} - ${char.realm}`);
-    onSearch(char.name, char.realmSlug, char.region);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (!showDropdown) return;
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIndex((i) => Math.min(i + 1, results.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIndex((i) => Math.max(i - 1, -1));
-    } else if (e.key === "Enter" && activeIndex >= 0) {
-      e.preventDefault();
-      selectCharacter(results[activeIndex]);
-    } else if (e.key === "Escape") {
-      setShowDropdown(false);
-    }
+  function pickRealm(r: Realm) {
+    setRealm(r);
+    setCharName("");
+    setStep(3);
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (activeIndex >= 0 && results[activeIndex]) {
-      selectCharacter(results[activeIndex]);
-      return;
-    }
-    if (results.length === 1) {
-      selectCharacter(results[0]);
-      return;
-    }
-    setError(
-      lang === "fr"
-        ? "Sélectionne un personnage dans la liste"
-        : "Select a character from the list"
-    );
+    if (!realm || !region || !charName.trim()) return;
+    onSearch(charName.trim(), realm.slug, region.toLowerCase());
   }
 
-  const placeholder = lang === "fr" ? "Nom du personnage..." : "Character name...";
-  const dropdownVisible = showDropdown && query.trim().length >= 3;
+  const realmList = region
+    ? (REALMS_BY_REGION[region.toLowerCase()] ?? []).filter((r) =>
+        r.name.toLowerCase().includes(realmQuery.toLowerCase())
+      )
+    : [];
+
+  const submitLabel = lang === "fr" ? "Roast Me !" : "Roast Me!";
+  const realmPlaceholder = lang === "fr" ? "Filtrer les royaumes..." : "Filter realms...";
+  const charPlaceholder = lang === "fr" ? "Nom du personnage..." : "Character name...";
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={handleSubmit}
-      className="w-full max-w-2xl space-y-4 opacity-0"
-    >
-      <div className="relative" ref={wrapperRef}>
-        {/* Input */}
-        <div className="relative">
+    <div ref={wrapperRef} className="w-full max-w-2xl space-y-4 opacity-0">
+
+      {/* ── Step 1: Region ── */}
+      {step === 1 && (
+        <div className="space-y-4">
+          <p className="text-gray-400 text-sm text-center font-mono tracking-wider uppercase">
+            {lang === "fr" ? "Choisis ta région" : "Select your region"}
+          </p>
+          <div className="grid grid-cols-4 gap-3">
+            {REGIONS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => pickRegion(r)}
+                disabled={isLoading}
+                className="rounded-2xl bg-white/[0.04] border border-white/[0.08] py-5
+                           text-white text-xl font-bold tracking-widest
+                           hover:bg-white/[0.08] hover:border-white/[0.18]
+                           transition-all duration-200 disabled:opacity-40"
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 2: Realm ── */}
+      {step === 2 && (
+        <div className="space-y-3">
+          {/* Breadcrumb */}
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className="flex items-center gap-1.5 text-gray-500 hover:text-gray-300 text-sm font-mono transition-colors"
+          >
+            <span>←</span>
+            <span>{region}</span>
+          </button>
+
+          {/* Filter input */}
           <input
+            ref={realmInputRef}
             type="text"
-            placeholder={placeholder}
-            value={query}
-            onChange={(e) => handleQueryChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => results.length > 0 && setShowDropdown(true)}
+            placeholder={realmPlaceholder}
+            value={realmQuery}
+            onChange={(e) => setRealmQuery(e.target.value)}
             autoComplete="off"
             spellCheck={false}
-            className={`w-full rounded-2xl bg-white/[0.04] border pl-5 pr-12 py-5 text-white text-lg
-                       placeholder-gray-600 focus:outline-none transition-all duration-300
-                       hover:border-white/[0.12] font-medium tracking-wide
-                       ${isSearching
-                         ? "border-blue-400/40"
-                         : "border-white/[0.08] focus:border-blue-400/40 focus:ring-1 focus:ring-blue-400/20"
-                       }`}
-            disabled={isLoading}
+            className="w-full rounded-2xl bg-white/[0.04] border border-white/[0.08] px-5 py-4
+                       text-white text-base placeholder-gray-600 focus:outline-none
+                       focus:border-blue-400/40 focus:ring-1 focus:ring-blue-400/20
+                       transition-all duration-300 font-medium"
           />
-          {isSearching && (
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-white/10 border-t-blue-400/70 rounded-full animate-spin pointer-events-none" />
-          )}
-        </div>
 
-        {/* Dropdown */}
-        {dropdownVisible && (
-          <div className="absolute z-50 w-full mt-1.5 rounded-xl bg-[#0c0c10] border border-white/[0.07] shadow-2xl overflow-hidden">
-            {isSearching ? (
-              // Loading state
-              <div className="px-4 py-3 text-gray-600 text-sm font-mono">
-                {lang === "fr" ? "Recherche en cours..." : "Searching..."}
-              </div>
-            ) : results.length === 0 && searched ? (
-              // No results
-              <div className="px-4 py-3 text-gray-600 text-sm font-mono">
-                {lang === "fr"
-                  ? "Aucun personnage trouvé — vérifie l'orthographe"
-                  : "No character found — check the spelling"}
-              </div>
+          {/* Realm list */}
+          <div className="rounded-xl border border-white/[0.07] bg-[#0c0c10] overflow-y-auto max-h-80">
+            {realmList.length === 0 ? (
+              <p className="px-4 py-3 text-gray-600 text-sm font-mono">
+                {lang === "fr" ? "Aucun royaume trouvé" : "No realms found"}
+              </p>
             ) : (
-              // Results
-              results.map((char, i) => (
+              realmList.map((r, i) => (
                 <button
-                  key={`${char.name}-${char.realmSlug}-${char.region}-${i}`}
+                  key={r.slug}
                   type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => selectCharacter(char)}
-                  className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors duration-75
-                    ${i === activeIndex ? "bg-white/[0.06]" : "hover:bg-white/[0.04]"}
-                    ${i < results.length - 1 ? "border-b border-white/[0.04]" : ""}`}
+                  onClick={() => pickRealm(r)}
+                  className={`w-full text-left px-4 py-3 text-white text-sm font-medium
+                    hover:bg-white/[0.06] transition-colors duration-75
+                    ${i < realmList.length - 1 ? "border-b border-white/[0.04]" : ""}`}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span
-                      className={`shrink-0 w-1.5 h-1.5 rounded-full ${
-                        char.faction === "alliance"
-                          ? "bg-blue-400"
-                          : char.faction === "horde"
-                          ? "bg-red-500"
-                          : "bg-gray-600"
-                      }`}
-                    />
-                    <span className="text-white font-semibold truncate">{char.name}</span>
-                    <span className="text-gray-600 text-sm shrink-0">—</span>
-                    <span className="text-gray-400 text-sm truncate">{char.realm}</span>
-                  </div>
-                  <div className="flex items-center gap-2 ml-3 shrink-0">
-                    {char.spec && (
-                      <span className="text-gray-600 text-xs hidden sm:block">{char.spec}</span>
-                    )}
-                    <span className={`text-xs font-mono ${CLASS_COLORS[char.class] ?? "text-gray-500"}`}>
-                      {char.class}
-                    </span>
-                    <span className="text-gray-700 text-[10px] font-mono uppercase">
-                      {char.region}
-                    </span>
-                  </div>
+                  {r.name}
                 </button>
               ))
             )}
           </div>
-        )}
-      </div>
-
-      {error && (
-        <p className="text-red-400/80 text-sm text-center font-mono">{error}</p>
+        </div>
       )}
 
-      <button
-        type="submit"
-        disabled={isLoading || !query.trim()}
-        className="w-full btn-roast text-xl tracking-[0.15em]"
-      >
-        Roast Me !
-      </button>
-    </form>
+      {/* ── Step 3: Character name ── */}
+      {step === 3 && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Breadcrumb */}
+          <button
+            type="button"
+            onClick={() => setStep(2)}
+            className="flex items-center gap-1.5 text-gray-500 hover:text-gray-300 text-sm font-mono transition-colors"
+          >
+            <span>←</span>
+            <span>{realm?.name} · {region}</span>
+          </button>
+
+          {/* Character name input */}
+          <input
+            ref={charInputRef}
+            type="text"
+            placeholder={charPlaceholder}
+            value={charName}
+            onChange={(e) => setCharName(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            disabled={isLoading}
+            className="w-full rounded-2xl bg-white/[0.04] border border-white/[0.08] px-5 py-5
+                       text-white text-lg placeholder-gray-600 focus:outline-none
+                       focus:border-blue-400/40 focus:ring-1 focus:ring-blue-400/20
+                       hover:border-white/[0.12] transition-all duration-300 font-medium tracking-wide
+                       disabled:opacity-40"
+          />
+
+          <button
+            type="submit"
+            disabled={isLoading || !charName.trim()}
+            className="w-full btn-roast text-xl tracking-[0.15em]"
+          >
+            {submitLabel}
+          </button>
+        </form>
+      )}
+    </div>
   );
 }

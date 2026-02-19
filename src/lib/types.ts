@@ -94,6 +94,7 @@ export interface RoastResponse {
     wclRankings: WCLRanking[] | null;
     roast: string;
     roastTitle: string;
+    punchline?: string;
   };
   error?: string;
 }
