@@ -1,57 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// ─── Blizzard token cache ──────────────────────────────────────────────────────
-const tokenCache = new Map<string, { token: string; expiresAt: number }>();
-
-async function getBlizzardToken(region: string): Promise<string | null> {
-  const cached = tokenCache.get(region);
-  if (cached && cached.expiresAt > Date.now() + 60_000) return cached.token;
-
-  const clientId = process.env.BLIZZARD_CLIENT_ID;
-  const clientSecret = process.env.BLIZZARD_CLIENT_SECRET;
-  if (!clientId || !clientSecret) return null;
-
-  try {
-    const res = await fetch(`https://${region}.battle.net/oauth/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-      },
-      body: "grant_type=client_credentials",
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    tokenCache.set(region, {
-      token: data.access_token,
-      expiresAt: Date.now() + data.expires_in * 1000,
-    });
-    return data.access_token;
-  } catch {
-    return null;
-  }
-}
-
-// ─── Realm list cache (24h) ────────────────────────────────────────────────────
-const realmCache = new Map<string, { slugs: string[]; fetchedAt: number }>();
-const REALM_CACHE_TTL = 24 * 60 * 60 * 1000;
-const INTERNAL_REALM_RE = /inst|account-realm|arena-pass|auxiliary|rdb-|zzz/;
-
-// Hardcoded fallbacks (and complete lists for KR/TW)
-const FALLBACK_REALMS: Record<string, string[]> = {
+// Curated list of active realms — covers ~95% of the active player base
+// Ordered by population (most populated first per region)
+const REALMS: Record<string, string[]> = {
   eu: [
+    // Top EN realms
     "kazzak", "tarren-mill", "draenor", "sylvanas", "twisting-nether",
     "ragnaros", "ravencrest", "stormscale", "silvermoon", "frostmane",
-    "archimonde", "hyjal", "ysondre", "outland", "burning-legion",
-    "blackrock", "eredar", "thrall", "drakthul", "antonidas",
-    "blackmoore", "blackhand", "norgannon", "malganis", "guldan",
-    "hellscream", "sargeras", "garona", "elune", "nordrassil",
+    "outland", "burning-legion", "blackrock", "nordrassil", "drakthul",
+    "grim-batol", "shadowsong", "dun-morogh", "azjolnerub", "spinebreaker",
+    "saurfang", "chamber-of-aspects", "neptulon", "aggramar", "aszune",
+    "kaelthas", "lightbringer", "emerald-dream", "earthen-ring", "darksorrow",
+    "bloodfeather", "mazrigos", "boulderfist", "frostwhisper", "kilrogg",
+    "chromaggus", "moonglade", "turalyon", "darkmoon-faire", "sporeggar",
+    "trollbane", "dunemaul", "bloodhoof", "borean-tundra", "blades-edge",
+    "bronze-dragonflight", "bronzebeard", "burningblade", "dentarg", "doomhammer",
+    "terokkar", "shattered-hand", "shattered-halls", "skullcrusher", "thunderhorn",
+    "steamwheedle-cartel", "stormreaver", "sunstrider", "talnivarr", "terenas",
+    "the-maelstrom", "the-shatar", "the-venture-co", "twilights-hammer", "wildhammer",
+    "xavius", "zenedar", "ravenholdt", "runetotem", "ghostlands",
+    "jaedenar", "hakkar", "executus", "eonar", "deathwing",
+    // Top DE realms
+    "antonidas", "blackmoore", "blackhand", "norgannon", "malganis",
+    "guldan", "hellscream", "eredar", "thrall", "baelgun",
+    "nozdormu", "nefarian", "tichondrius", "senjin", "rexxar",
+    "onyxia", "madmortem", "azshara", "blackrock", "teldrassil",
+    // Top FR realms
+    "archimonde", "hyjal", "ysondre", "sargeras", "garona",
+    "elune", "cho-gall", "kirin-tor", "naxxramas", "nerzhul",
+    "eitrigg", "rashgarroth", "voljin", "dalaran", "krasus",
+    // Top ES/PT realms
+    "aggra-portugu%C3%AAs", "sanguino", "minahonda", "colinas-pardas", "tyrande",
   ],
   us: [
+    // Top EN realms
     "area-52", "illidan", "stormrage", "mal-ganis", "tichondrius",
-    "sargeras", "bleeding-hollow", "moon-guard", "wyrmrest-accord",
-    "kelthuzad", "zuljin", "barthilas", "darkspear", "emerald-dream",
-    "arthas", "mannoroth", "frostmourne", "thunderlord",
+    "sargeras", "bleeding-hollow", "moon-guard", "wyrmrest-accord", "kelthuzad",
+    "zuljin", "barthilas", "darkspear", "emerald-dream", "arthas",
+    "mannoroth", "frostmourne", "thunderlord", "dalaran", "proudmoore",
+    "lightbringer", "muradin", "khadgar", "durotan", "windrunner",
+    "earthen-ring", "aerie-peak", "alleria", "silver-hand", "azjolnerub",
+    "dath-remar", "nagrand", "hellscream", "turalyon", "blackhand",
+    "eonar", "bronzebeard", "stormreaver", "bloodhoof", "skullcrusher",
+    "altar-of-storms", "andorhal", "azgalor", "azuremyst", "baelgun",
+    "black-dragonflight", "blackwater-raiders", "bladefist", "blades-edge",
+    "blood-furnace", "bloodscalp", "boulderfist", "burning-blade", "cairne",
+    "cenarion-circle", "cho-gall", "coilfang", "crushridge", "dark-iron",
+    "darrowmere", "deathwing", "destromath", "doomhammer", "dragonblight",
+    "dragonmaw", "draktharon", "dunemaul", "echo-isles", "exodar",
+    "farstriders", "feathermoon", "fenris", "fizzcrank", "frostmane",
+    "galakrond", "garona", "garrosh", "ghostlands", "gnomeregan",
+    "gorefiend", "grizzly-hills", "icecrown", "jaedenar", "kargath",
+    "kiljaeden", "kilrogg", "kirin-tor", "laughing-skull", "llane",
+    "lothar", "malfurion", "malygos", "medivh", "moon-guard",
+    "nazjatar", "nerzhul", "norgannon", "perenolde", "queldorei",
+    "ravenholdt", "runetotem", "scarlet-crusade", "sentinels", "shadow-council",
+    "shadowmoon", "shadowsong", "shattered-hand", "sisters-of-elune", "skywall",
+    "spinebreaker", "staghelm", "steamwheedle-cartel", "stormscale", "suramar",
+    "terenas", "terokkar", "thrall", "thunderhorn", "uther",
+    "velen", "whisperwind", "wildhammer", "winterhoof", "ysera",
   ],
   kr: [
     "azshara", "burning-legion", "guldan", "malfurion", "dalaran",
@@ -65,33 +72,6 @@ const FALLBACK_REALMS: Record<string, string[]> = {
   ],
 };
 
-async function getRealmSlugs(region: string): Promise<string[]> {
-  if (region === "kr" || region === "tw") return FALLBACK_REALMS[region];
-
-  const cached = realmCache.get(region);
-  if (cached && Date.now() - cached.fetchedAt < REALM_CACHE_TTL) return cached.slugs;
-
-  const token = await getBlizzardToken(region);
-  if (!token) return FALLBACK_REALMS[region] ?? [];
-
-  try {
-    const res = await fetch(
-      `https://${region}.api.blizzard.com/data/wow/realm/index?namespace=dynamic-${region}&locale=en_US`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (!res.ok) return FALLBACK_REALMS[region] ?? [];
-    const data = await res.json();
-    const slugs: string[] = (data.realms ?? [])
-      .map((r: { slug?: string }) => r.slug ?? "")
-      .filter((s: string) => s && !INTERNAL_REALM_RE.test(s));
-    realmCache.set(region, { slugs, fetchedAt: Date.now() });
-    return slugs;
-  } catch {
-    return FALLBACK_REALMS[region] ?? [];
-  }
-}
-
-// ─── Search result cache (5min) ───────────────────────────────────────────────
 interface CharacterResult {
   name: string;
   realm: string;
@@ -102,10 +82,10 @@ interface CharacterResult {
   faction: string;
 }
 
+// Search result cache (5min TTL)
 const searchCache = new Map<string, { results: CharacterResult[]; fetchedAt: number }>();
 const SEARCH_CACHE_TTL = 5 * 60 * 1000;
 
-// ─── Raider.io lookup ─────────────────────────────────────────────────────────
 async function lookupCharacter(
   name: string,
   realmSlug: string,
@@ -114,8 +94,7 @@ async function lookupCharacter(
 ): Promise<CharacterResult | null> {
   try {
     const capitalized = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-    // Encode both name and realm slug to handle special characters
-    const url = `https://raider.io/api/v1/characters/profile?region=${region}&realm=${encodeURIComponent(realmSlug)}&name=${encodeURIComponent(capitalized)}`;
+    const url = `https://raider.io/api/v1/characters/profile?region=${region}&realm=${realmSlug}&name=${encodeURIComponent(capitalized)}`;
     const res = await fetch(url, { signal });
     if (!res.ok) return null;
     const data = await res.json();
@@ -134,70 +113,31 @@ async function lookupCharacter(
   }
 }
 
-// Run promises with a concurrency limit
-async function withConcurrency<T>(
-  tasks: (() => Promise<T>)[],
-  limit: number
-): Promise<PromiseSettledResult<T>[]> {
-  const results: PromiseSettledResult<T>[] = [];
-  let index = 0;
-
-  async function worker() {
-    while (index < tasks.length) {
-      const i = index++;
-      try {
-        results[i] = { status: "fulfilled", value: await tasks[i]() };
-      } catch (e) {
-        results[i] = { status: "rejected", reason: e };
-      }
-    }
-  }
-
-  const workers = Array.from({ length: Math.min(limit, tasks.length) }, worker);
-  await Promise.all(workers);
-  return results;
-}
-
-// ─── Route handler ─────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("q")?.trim() ?? "";
 
   if (query.length < 3) return NextResponse.json({ results: [] });
 
-  // Check search cache
   const cacheKey = query.toLowerCase();
   const cached = searchCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < SEARCH_CACHE_TTL) {
     return NextResponse.json({ results: cached.results });
   }
 
-  // Fetch realm lists for all regions in parallel
-  const [euRealms, usRealms, krRealms, twRealms] = await Promise.all([
-    getRealmSlugs("eu"),
-    getRealmSlugs("us"),
-    getRealmSlugs("kr"),
-    getRealmSlugs("tw"),
-  ]);
-
-  const allRealms = [
-    ...euRealms.map((r) => ({ realm: r, region: "eu" })),
-    ...usRealms.map((r) => ({ realm: r, region: "us" })),
-    ...krRealms.map((r) => ({ realm: r, region: "kr" })),
-    ...twRealms.map((r) => ({ realm: r, region: "tw" })),
-  ];
+  const allRealms = Object.entries(REALMS).flatMap(([region, realms]) =>
+    realms.map((realm) => ({ realm, region }))
+  );
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6000);
+  const timeout = setTimeout(() => controller.abort(), 4000);
 
   try {
-    // Concurrency limit of 80 to avoid overwhelming Vercel / Raider.io
-    const tasks = allRealms.map(
-      ({ realm, region }) =>
-        () => lookupCharacter(query, realm, region, controller.signal)
+    const settled = await Promise.allSettled(
+      allRealms.map(({ realm, region }) =>
+        lookupCharacter(query, realm, region, controller.signal)
+      )
     );
-
-    const settled = await withConcurrency(tasks, 80);
     clearTimeout(timeout);
 
     const results: CharacterResult[] = settled
