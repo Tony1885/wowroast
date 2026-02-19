@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchRaiderIOProfile, slugifyServer } from "@/lib/raiderio";
 import { fetchWCLRankings } from "@/lib/warcraftlogs";
+import { recordRoast } from "@/lib/shame";
 
 export const maxDuration = 60;
 
@@ -166,46 +167,53 @@ export async function POST(request: NextRequest) {
     const charGender = sanitizeForPrompt(profile.gender);
     const charRealm = sanitizeForPrompt(profile.realm);
 
-    const prompt = `You are the most savage, brutally honest, and hilariously mean WoW player roaster.
-You talk like a top-tier mythic raider who is disgusted by mediocrity. Your style is
-trash-talk mixed with dark humor - think method raiders flaming a pug in voice chat.
-Be SPECIFIC - reference their actual numbers, their actual class/spec, their actual raid kills.
-Don't be generic. Every line should reference something from their data.
+    // Pick a random roast angle so every roast feels different
+    const roastAngles = [
+      "a washed-up veteran who peaked in Wrath and never recovered, now bitter and condescending",
+      "a hardcore bleeding-edge mythic raider with zero patience for mediocrity, actively disgusted",
+      "a toxic trade chat legend who has seen everything and is personally offended by this character's existence",
+      "a raid leader who just wiped for the 47th time because of someone exactly like this character",
+      "a Warcraft Logs addict who judges every human being by their parse percentile",
+      "a speedrunner who calculates the exact amount of time this character has wasted in this game",
+      "an MDI commentator trying to explain this player's M+ 'strategy' to a confused audience",
+    ];
+    const angle = roastAngles[Math.floor(Math.random() * roastAngles.length)];
 
-IMPORTANT: Write the entire roast in ${lang}.
+    const prompt = `You are ${angle}.
+You are roasting a WoW character based on their stats. Be DEVASTATINGLY specific — every sentence must reference their actual data.
+No generic insults. If their M+ score is 847, say 847. If they killed 2 mythic bosses, say exactly that.
+Your roast must feel completely different from any other roast — vary the structure, the angle, the humor style.
 
-Here is the character data to roast:
+WRITE THE ENTIRE ROAST IN ${lang}.
 
-CHARACTER: ${charName} - ${charSpec} ${charClass}
-Race: ${charRace} | Faction: ${charFaction} | Gender: ${charGender}
+CHARACTER DATA:
+${charName} — ${charSpec} ${charClass} (${charRace}, ${charFaction})
 Realm: ${charRealm} (${regionLower.toUpperCase()})
-Item Level: ${ilvl}
-Achievement Points: ${profile.achievement_points ?? "unknown"}
-Honorable Kills: ${profile.honorable_kills}
+Item Level: ${ilvl} | Achievement Points: ${profile.achievement_points ?? "unknown"} | Honorable Kills: ${profile.honorable_kills}
 
 MYTHIC+ SCORE: ${mplusScore}
-
 BEST M+ RUNS:
-${bestRuns.length > 0 ? bestRuns.map((r) => `- ${sanitizeForPrompt(r.dungeon)}: +${r.level} (${r.upgrades > 0 ? `+${r.upgrades} upgrades` : "depleted/timed"})`).join("\n") : "No best runs found. LMAO."}
+${bestRuns.length > 0 ? bestRuns.map((r) => `- ${sanitizeForPrompt(r.dungeon)}: +${r.level} (${r.upgrades > 0 ? `+${r.upgrades} upgrades` : "DEPLETED"})`).join("\n") : "ZERO best runs on record."}
 
 RECENT M+ RUNS:
-${recentRuns.length > 0 ? recentRuns.map((r) => `- ${sanitizeForPrompt(r.dungeon)}: +${r.level} (${r.upgrades > 0 ? `+${r.upgrades} upgrades` : "depleted"})`).join("\n") : "No recent runs. Are they even playing?"}
+${recentRuns.length > 0 ? recentRuns.map((r) => `- ${sanitizeForPrompt(r.dungeon)}: +${r.level} (${r.upgrades > 0 ? `+${r.upgrades} upgrades` : "depleted"})`).join("\n") : "No recent activity. Ghost player."}
 
 RAID PROGRESSION:
-${raids.length > 0 ? raids.map((r) => `- ${sanitizeForPrompt(r.raidName)}: ${sanitizeForPrompt(r.summary)} (${r.mythicKilled}M/${r.heroicKilled}H/${r.normalKilled}N out of ${r.totalBosses})`).join("\n") : "No raid progression. Tourist."}
+${raids.length > 0 ? raids.map((r) => `- ${sanitizeForPrompt(r.raidName)}: ${sanitizeForPrompt(r.summary)} (${r.mythicKilled}M/${r.heroicKilled}H/${r.normalKilled}N / ${r.totalBosses})`).join("\n") : "No raid data. Pure tourist."}
 
-WARCRAFT LOGS RANKINGS:
+WARCRAFT LOGS:
 ${wclSummary}
 
-FORMATTING RULES:
-- Use emojis SPARINGLY — maximum 2-3 emojis in the entire roast, only where it really lands
-- Put key roast words in FULL CAPS for emphasis (like "PATHETIC", "EMBARRASSING", "ZERO")
-- DO NOT repeat the character name in the roastTitle (it's already shown elsewhere)
-- The roastTitle should be a generic devastating punchline about their performance, NOT mentioning their name
-- If writing in French, use the correct WoW French terminology: "hauts faits" (NOT "réalisations"), "points de hauts faits", "donjon mythique", "incursion", "butin", "score Mythique+"
+RULES:
+- No emojis. Zero. This is a serious verbal execution.
+- CAPS only for the most devastating words (max 5 times total)
+- 4 paragraphs. Each must attack a different weakness: class/spec choices, M+ performance, raid progression, overall life choices.
+- The last sentence must be a fake compliment so backhanded it almost sounds like an insult again.
+- If writing in French: use "hauts faits", "score Mythique+", "donjon mythique", "incursion", "déplétion" — NEVER "réalisations"
+- DO NOT use the character name in the roastTitle
 
-Respond ONLY with a valid JSON object, no markdown, no code blocks:
-{"roastTitle": "A short punchy devastating headline max 8 words in ${lang}. DO NOT include the character name.", "roast": "A 3-5 paragraph savage roast in ${lang}. Use CAPS for emphasis. Be specific about their numbers. Mock their ilvl, M+ score, raid prog, WCL parses. Use WoW-specific humor. Be BRUTAL but FUNNY. End with one backhanded compliment."}`;
+Respond ONLY with valid JSON, no markdown:
+{"roastTitle": "Max 7 words. Devastating. No character name. In ${lang}.", "roast": "4 paragraphs. Brutal. Specific. Varied. In ${lang}."}`;
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -245,6 +253,17 @@ Respond ONLY with a valid JSON object, no markdown, no code blocks:
     }
 
     const aiResult = JSON.parse(text);
+
+    // Record for Hall of Shame (local only — silently fails on Vercel)
+    recordRoast({
+      name: profile.name,
+      realm: profile.realm,
+      region: regionLower,
+      class: profile.class,
+      ilvl,
+      mplusScore,
+      roastTitle: aiResult.roastTitle,
+    });
 
     return NextResponse.json({
       success: true,

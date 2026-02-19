@@ -45,6 +45,42 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
 
   const { displayed: typedRoast, done: typingDone } = useTypewriter(roast, 8);
   const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
+
+  const handleShare = useCallback(async () => {
+    setSharing(true);
+    try {
+      // Take first paragraph of roast, truncate to 280 chars
+      const firstPara = roast.split("\n\n")[0] ?? roast;
+      const snippet = firstPara.length > 280 ? firstPara.slice(0, 277) + "..." : firstPara;
+
+      const params = new URLSearchParams({
+        name:    character.name,
+        realm:   character.realm,
+        region:  character.region,
+        class:   character.class,
+        spec:    character.spec,
+        ilvl:    String(character.ilvl),
+        mplus:   String(mythicPlus.score.toFixed(0)),
+        title:   roastTitle,
+        snippet,
+      });
+
+      const res = await fetch(`/api/og?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to generate image");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `wowroast-${character.name.toLowerCase()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Silently fail
+    } finally {
+      setSharing(false);
+    }
+  }, [roastTitle, roast, character, mythicPlus]);
 
   const handleCopy = useCallback(() => {
     const textToCopy = `${roastTitle}\n\n${roast}\n\n— WoWRoast.com`;
@@ -233,6 +269,30 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
               ROASTED BY AI &bull; DATA FROM RAIDER.IO & WCL
             </p>
             <div className="flex items-center gap-4">
+              {/* Share PNG */}
+              <button
+                onClick={handleShare}
+                disabled={!typingDone || sharing}
+                className="flex items-center gap-1.5 text-[11px] font-mono tracking-wider
+                           text-blue-400/30 hover:text-blue-400 transition-colors
+                           disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {sharing ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border border-white/10 border-t-blue-400/70 rounded-full animate-spin" />
+                    GENERATING...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    SHARE PNG
+                  </>
+                )}
+              </button>
+
+              {/* Copy text */}
               <button
                 onClick={handleCopy}
                 disabled={!typingDone}
