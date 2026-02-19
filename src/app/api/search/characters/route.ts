@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Top realms per region — covers ~80% of active players
 const TOP_REALMS: Record<string, string[]> = {
   eu: [
     "kazzak", "tarren-mill", "draenor", "sylvanas", "twisting-nether",
@@ -28,6 +27,7 @@ interface CharacterResult {
   name: string;
   realm: string;
   realmSlug: string;
+  region: string;
   class: string;
   spec: string;
   faction: string;
@@ -50,6 +50,7 @@ async function lookupCharacter(
       name: data.name,
       realm: data.realm,
       realmSlug,
+      region,
       class: data.class ?? "",
       spec: data.active_spec_name ?? "",
       faction: data.faction ?? "",
@@ -62,26 +63,20 @@ async function lookupCharacter(
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("q")?.trim() ?? "";
-  const region = searchParams.get("region")?.toLowerCase() ?? "eu";
 
   if (query.length < 3) {
     return NextResponse.json({ results: [] });
   }
 
-  const validRegions = new Set(["us", "eu", "kr", "tw"]);
-  if (!validRegions.has(region)) {
-    return NextResponse.json({ results: [] });
-  }
-
-  const realms = TOP_REALMS[region] ?? TOP_REALMS["eu"];
-
-  // Abort all requests after 4s
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000);
+  const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const searches = realms.map((realm) =>
-      lookupCharacter(query, realm, region, controller.signal)
+    // Search all regions in parallel
+    const searches = Object.entries(TOP_REALMS).flatMap(([region, realms]) =>
+      realms.map((realm) =>
+        lookupCharacter(query, realm, region, controller.signal)
+      )
     );
 
     const settled = await Promise.allSettled(searches);

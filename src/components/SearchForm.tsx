@@ -7,6 +7,7 @@ interface CharacterResult {
   name: string;
   realm: string;
   realmSlug: string;
+  region: string;
   class: string;
   spec: string;
   faction: string;
@@ -17,8 +18,6 @@ interface SearchFormProps {
   isLoading: boolean;
   lang: "fr" | "en";
 }
-
-const REGIONS = ["EU", "US", "KR", "TW"] as const;
 
 const CLASS_COLORS: Record<string, string> = {
   "Death Knight": "text-red-400",
@@ -38,7 +37,6 @@ const CLASS_COLORS: Record<string, string> = {
 
 export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProps) {
   const [query, setQuery] = useState("");
-  const [region, setRegion] = useState<string>("EU");
   const [results, setResults] = useState<CharacterResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -59,7 +57,6 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
     }
   }, []);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
@@ -70,7 +67,7 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const searchCharacters = useCallback(async (q: string, reg: string) => {
+  const searchCharacters = useCallback(async (q: string) => {
     if (q.length < 3) {
       setResults([]);
       setShowDropdown(false);
@@ -79,9 +76,7 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
 
     setIsSearching(true);
     try {
-      const res = await fetch(
-        `/api/search/characters?q=${encodeURIComponent(q)}&region=${reg.toLowerCase()}`
-      );
+      const res = await fetch(`/api/search/characters?q=${encodeURIComponent(q)}`);
       const data = await res.json();
       const list: CharacterResult[] = data.results ?? [];
       setResults(list);
@@ -100,22 +95,14 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
     setError("");
     setActiveIndex(-1);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => searchCharacters(value, region), 300);
-  }
-
-  function handleRegionChange(r: string) {
-    setRegion(r);
-    if (query.length >= 2) {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => searchCharacters(query, r), 300);
-    }
+    debounceRef.current = setTimeout(() => searchCharacters(value), 300);
   }
 
   function selectCharacter(char: CharacterResult) {
     setShowDropdown(false);
     setResults([]);
     setQuery(`${char.name} - ${char.realm}`);
-    onSearch(char.name, char.realmSlug, region.toLowerCase());
+    onSearch(char.name, char.realmSlug, char.region);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -138,37 +125,19 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
-    // If an item is highlighted via keyboard, select it
     if (activeIndex >= 0 && results[activeIndex]) {
       selectCharacter(results[activeIndex]);
       return;
     }
 
-    // Fallback: manual "Name - Realm" parsing
-    const trimmed = query.trim();
-    if (!trimmed) return;
-
-    if (trimmed.includes(" - ") || trimmed.includes("-")) {
-      const parts = trimmed.split(/-/).map((s) => s.trim());
-      const name = parts[0];
-      const realm = parts.slice(1).join("-");
-      if (name && realm) {
-        onSearch(name, realm, region.toLowerCase());
-        return;
-      }
-    }
-
     setError(
       lang === "fr"
-        ? "Sélectionne un personnage dans la liste ou écris Nom - Serveur"
-        : "Select a character from the list or type Name - Realm"
+        ? "Sélectionne un personnage dans la liste"
+        : "Select a character from the list"
     );
   }
 
-  const placeholder =
-    lang === "fr"
-      ? "Nom du personnage (3 lettres min)..."
-      : "Character name (3 letters min)...";
+  const placeholder = lang === "fr" ? "Nom du personnage..." : "Character name...";
 
   return (
     <form
@@ -176,7 +145,6 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
       onSubmit={handleSubmit}
       className="w-full max-w-2xl space-y-4 opacity-0"
     >
-      {/* Search bar + dropdown wrapper */}
       <div className="relative" ref={wrapperRef}>
         <div className="relative">
           <input
@@ -188,7 +156,7 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
             onFocus={() => results.length > 0 && setShowDropdown(true)}
             autoComplete="off"
             spellCheck={false}
-            className={`w-full rounded-2xl bg-white/[0.04] border pl-5 pr-32 py-5 text-white text-lg
+            className={`w-full rounded-2xl bg-white/[0.04] border pl-5 pr-5 py-5 text-white text-lg
                        placeholder-gray-600 focus:outline-none transition-all duration-300
                        hover:border-white/[0.12] font-medium tracking-wide
                        ${isSearching
@@ -198,28 +166,9 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
             disabled={isLoading}
           />
 
-          {/* Searching indicator */}
           {isSearching && (
-            <span className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-blue-400/20 border-t-blue-400/60 rounded-full animate-spin pointer-events-none" />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-blue-400/20 border-t-blue-400/60 rounded-full animate-spin pointer-events-none" />
           )}
-
-          {/* Region selector */}
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-            {REGIONS.map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => handleRegionChange(r)}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold tracking-wider transition-all duration-200 ${
-                  region === r
-                    ? "bg-blue-500/20 text-blue-300 border border-blue-400/30"
-                    : "text-gray-600 hover:text-gray-400 border border-transparent"
-                }`}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Autocomplete dropdown */}
@@ -227,16 +176,15 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
           <div className="absolute z-50 w-full mt-1.5 rounded-xl bg-[#0c0c10] border border-white/[0.07] shadow-2xl overflow-hidden">
             {results.map((char, i) => (
               <button
-                key={`${char.name}-${char.realmSlug}-${i}`}
+                key={`${char.name}-${char.realmSlug}-${char.region}-${i}`}
                 type="button"
-                onMouseDown={(e) => e.preventDefault()} // prevent input blur before click
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => selectCharacter(char)}
                 className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors duration-75
                   ${i === activeIndex ? "bg-white/[0.06]" : "hover:bg-white/[0.04]"}
                   ${i < results.length - 1 ? "border-b border-white/[0.04]" : ""}`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  {/* Faction dot */}
                   <span
                     className={`shrink-0 w-1.5 h-1.5 rounded-full ${
                       char.faction === "alliance"
@@ -254,10 +202,11 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
                   {char.spec && (
                     <span className="text-gray-600 text-xs">{char.spec}</span>
                   )}
-                  <span
-                    className={`text-xs font-mono ${CLASS_COLORS[char.class] ?? "text-gray-500"}`}
-                  >
+                  <span className={`text-xs font-mono ${CLASS_COLORS[char.class] ?? "text-gray-500"}`}>
                     {char.class}
+                  </span>
+                  <span className="text-gray-700 text-[10px] font-mono uppercase">
+                    {char.region}
                   </span>
                 </div>
               </button>
