@@ -198,13 +198,14 @@ WARCRAFT LOGS RANKINGS:
 ${wclSummary}
 
 FORMATTING RULES:
-- Use emojis frequently
+- Use emojis SPARINGLY — maximum 2-3 emojis in the entire roast, only where it really lands
 - Put key roast words in FULL CAPS for emphasis (like "PATHETIC", "EMBARRASSING", "ZERO")
 - DO NOT repeat the character name in the roastTitle (it's already shown elsewhere)
 - The roastTitle should be a generic devastating punchline about their performance, NOT mentioning their name
+- If writing in French, use the correct WoW French terminology: "hauts faits" (NOT "réalisations"), "points de hauts faits", "donjon mythique", "incursion", "butin", "score Mythique+"
 
 Respond ONLY with a valid JSON object, no markdown, no code blocks:
-{"roastTitle": "A short punchy devastating headline max 8 words in ${lang}. DO NOT include the character name.", "roast": "A 3-5 paragraph savage roast in ${lang}. Use emojis and CAPS for emphasis. Be specific about their numbers. Mock their ilvl, M+ score, raid prog, WCL parses. Use WoW-specific humor. Be BRUTAL but FUNNY. End with one backhanded compliment."}`;
+{"roastTitle": "A short punchy devastating headline max 8 words in ${lang}. DO NOT include the character name.", "roast": "A 3-5 paragraph savage roast in ${lang}. Use CAPS for emphasis. Be specific about their numbers. Mock their ilvl, M+ score, raid prog, WCL parses. Use WoW-specific humor. Be BRUTAL but FUNNY. End with one backhanded compliment."}`;
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
