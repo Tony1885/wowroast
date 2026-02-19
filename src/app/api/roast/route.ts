@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchRaiderIOProfile, slugifyServer } from "@/lib/raiderio";
+import { fetchBlizzardCharacter } from "@/lib/blizzard";
 import { fetchWCLRankings } from "@/lib/warcraftlogs";
 import { recordRoast } from "@/lib/shame";
 
@@ -83,8 +84,14 @@ export async function POST(request: NextRequest) {
     // Detect language
     const lang = (typeof locale === "string" && locale.startsWith("fr")) ? "French" : "English";
 
-    // === Fetch Raider.io profile ===
-    const profile = await fetchRaiderIOProfile(regionLower, realm, name);
+    // === Fetch profile — Raider.io first, Blizzard as fallback for inactive chars ===
+    let profile = await fetchRaiderIOProfile(regionLower, realm, name);
+    let isInactive = false;
+
+    if (!profile) {
+      profile = await fetchBlizzardCharacter(regionLower, realm, name);
+      if (profile) isInactive = true;
+    }
 
     if (!profile) {
       return NextResponse.json(
@@ -218,7 +225,7 @@ export async function POST(request: NextRequest) {
 You are roasting a WoW character based on their stats. Be DEVASTATINGLY specific — every sentence must reference their actual data.
 No generic insults. If their M+ score is 847, say 847. If they killed 2 mythic bosses, say exactly that.
 Your roast must feel completely different from any other roast — vary the structure, the angle, the humor style.
-
+${isInactive ? `\nIMPORTANT: This character is COMPLETELY INACTIVE — they have ZERO Mythic+ score, zero raid progression, zero logs. They are a ghost. A fossil. Raider.io doesn't even know they exist. The entire roast must hammer this abandonment angle mercilessly.\n` : ""}
 WRITE THE ENTIRE ROAST IN ${lang}.
 
 CHARACTER DATA:
