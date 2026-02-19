@@ -1,39 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Curated list of active realms — covers ~95% of the active player base
-// Ordered by population (most populated first per region)
+// All slugs verified against Raider.io API
 const REALMS: Record<string, string[]> = {
   eu: [
-    // Top EN realms
+    // English realms
     "kazzak", "tarren-mill", "draenor", "sylvanas", "twisting-nether",
     "ragnaros", "ravencrest", "stormscale", "silvermoon", "frostmane",
-    "outland", "burning-legion", "blackrock", "nordrassil", "drakthul",
-    "grim-batol", "shadowsong", "dun-morogh", "azjolnerub", "spinebreaker",
-    "saurfang", "chamber-of-aspects", "neptulon", "aggramar", "aszune",
-    "kaelthas", "lightbringer", "emerald-dream", "earthen-ring", "darksorrow",
-    "bloodfeather", "mazrigos", "boulderfist", "frostwhisper", "kilrogg",
-    "chromaggus", "moonglade", "turalyon", "darkmoon-faire", "sporeggar",
-    "trollbane", "dunemaul", "bloodhoof", "borean-tundra", "blades-edge",
-    "bronze-dragonflight", "bronzebeard", "burningblade", "dentarg", "doomhammer",
-    "terokkar", "shattered-hand", "shattered-halls", "skullcrusher", "thunderhorn",
+    "outland", "burning-legion", "nordrassil", "drakthul", "grim-batol",
+    "shadowsong", "dun-morogh", "azjolnerub", "spinebreaker", "saurfang",
+    "chamber-of-aspects", "neptulon", "aggramar", "aszune", "kaelthas",
+    "lightbringer", "emerald-dream", "earthen-ring", "darksorrow", "bloodfeather",
+    "mazrigos", "boulderfist", "frostwhisper", "kilrogg", "chromaggus",
+    "moonglade", "turalyon", "darkmoon-faire", "sporeggar", "trollbane",
+    "dunemaul", "bloodhoof", "borean-tundra", "blades-edge", "bronze-dragonflight",
+    "bronzebeard", "burning-blade", "dentarg", "doomhammer", "terokkar",
+    "shattered-hand", "shattered-halls", "skullcrusher", "thunderhorn",
     "steamwheedle-cartel", "stormreaver", "sunstrider", "talnivarr", "terenas",
     "the-maelstrom", "the-shatar", "the-venture-co", "twilights-hammer", "wildhammer",
     "xavius", "zenedar", "ravenholdt", "runetotem", "ghostlands",
     "jaedenar", "hakkar", "executus", "eonar", "deathwing",
-    // Top DE realms
+    "aerie-peak", "alonsus", "arathor", "argent-dawn", "bladefist",
+    "bloodscalp", "dragonmaw", "durotan", "nagrand", "darkspear",
+    // German realms
     "antonidas", "blackmoore", "blackhand", "norgannon", "malganis",
     "guldan", "hellscream", "eredar", "thrall", "baelgun",
     "nozdormu", "nefarian", "tichondrius", "senjin", "rexxar",
     "onyxia", "madmortem", "azshara", "blackrock", "teldrassil",
-    // Top FR realms
+    "naxxramas", "nerzhul",
+    // French realms
     "archimonde", "hyjal", "ysondre", "sargeras", "garona",
-    "elune", "cho-gall", "kirin-tor", "naxxramas", "nerzhul",
-    "eitrigg", "rashgarroth", "voljin", "dalaran", "krasus",
-    // Top ES/PT realms
-    "aggra-portugu%C3%AAs", "sanguino", "minahonda", "colinas-pardas", "tyrande",
+    "elune", "cho-gall", "kirin-tor", "eitrigg", "rashgarroth",
+    "voljin", "dalaran", "krasus",
+    // Spanish/Portuguese realms
+    "sanguino", "minahonda", "colinas-pardas", "tyrande",
   ],
   us: [
-    // Top EN realms
     "area-52", "illidan", "stormrage", "mal-ganis", "tichondrius",
     "sargeras", "bleeding-hollow", "moon-guard", "wyrmrest-accord", "kelthuzad",
     "zuljin", "barthilas", "darkspear", "emerald-dream", "arthas",
@@ -52,13 +53,14 @@ const REALMS: Record<string, string[]> = {
     "galakrond", "garona", "garrosh", "ghostlands", "gnomeregan",
     "gorefiend", "grizzly-hills", "icecrown", "jaedenar", "kargath",
     "kiljaeden", "kilrogg", "kirin-tor", "laughing-skull", "llane",
-    "lothar", "malfurion", "malygos", "medivh", "moon-guard",
+    "lothar", "malfurion", "malygos", "medivh",
     "nazjatar", "nerzhul", "norgannon", "perenolde", "queldorei",
     "ravenholdt", "runetotem", "scarlet-crusade", "sentinels", "shadow-council",
     "shadowmoon", "shadowsong", "shattered-hand", "sisters-of-elune", "skywall",
     "spinebreaker", "staghelm", "steamwheedle-cartel", "stormscale", "suramar",
     "terenas", "terokkar", "thrall", "thunderhorn", "uther",
     "velen", "whisperwind", "wildhammer", "winterhoof", "ysera",
+    "caelestrasz", "frostmourne", "thaurissan", "dreadmaul", "jubeithos",
   ],
   kr: [
     "azshara", "burning-legion", "guldan", "malfurion", "dalaran",
@@ -94,6 +96,7 @@ async function lookupCharacter(
 ): Promise<CharacterResult | null> {
   try {
     const capitalized = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    // realmSlug is already URL-safe (lowercase ASCII + hyphens)
     const url = `https://raider.io/api/v1/characters/profile?region=${region}&realm=${realmSlug}&name=${encodeURIComponent(capitalized)}`;
     const res = await fetch(url, { signal });
     if (!res.ok) return null;
