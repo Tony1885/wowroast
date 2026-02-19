@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// ─── Blizzard token cache (per region) ────────────────────────────────────────
+// ─── Blizzard token cache ──────────────────────────────────────────────────────
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 async function getBlizzardToken(region: string): Promise<string | null> {
@@ -22,27 +22,30 @@ async function getBlizzardToken(region: string): Promise<string | null> {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    tokenCache.set(region, { token: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 });
+    tokenCache.set(region, {
+      token: data.access_token,
+      expiresAt: Date.now() + data.expires_in * 1000,
+    });
     return data.access_token;
   } catch {
     return null;
   }
 }
 
-// ─── Realm list cache (per region, 24h TTL) ───────────────────────────────────
+// ─── Realm list cache (24h) ────────────────────────────────────────────────────
 const realmCache = new Map<string, { slugs: string[]; fetchedAt: number }>();
 const REALM_CACHE_TTL = 24 * 60 * 60 * 1000;
 const INTERNAL_REALM_RE = /inst|account-realm|arena-pass|auxiliary|rdb-|zzz/;
 
-// Fallback lists if Blizzard API is unavailable
+// Hardcoded fallbacks (and complete lists for KR/TW)
 const FALLBACK_REALMS: Record<string, string[]> = {
   eu: [
     "kazzak", "tarren-mill", "draenor", "sylvanas", "twisting-nether",
     "ragnaros", "ravencrest", "stormscale", "silvermoon", "frostmane",
     "archimonde", "hyjal", "ysondre", "outland", "burning-legion",
-    "aggra-portugu%C3%AAs", "blackrock", "eredar", "thrall", "drakthul",
-    "antonidas", "blackmoore", "blackhand", "norgannon", "malganis",
-    "guldan", "hellscream", "sargeras", "garona", "elune",
+    "blackrock", "eredar", "thrall", "drakthul", "antonidas",
+    "blackmoore", "blackhand", "norgannon", "malganis", "guldan",
+    "hellscream", "sargeras", "garona", "elune", "nordrassil",
   ],
   us: [
     "area-52", "illidan", "stormrage", "mal-ganis", "tichondrius",
@@ -63,7 +66,6 @@ const FALLBACK_REALMS: Record<string, string[]> = {
 };
 
 async function getRealmSlugs(region: string): Promise<string[]> {
-  // KR and TW: use hardcoded (TW credentials don't work, KR has 18 realms already complete)
   if (region === "kr" || region === "tw") return FALLBACK_REALMS[region];
 
   const cached = realmCache.get(region);
@@ -78,12 +80,10 @@ async function getRealmSlugs(region: string): Promise<string[]> {
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!res.ok) return FALLBACK_REALMS[region] ?? [];
-
     const data = await res.json();
     const slugs: string[] = (data.realms ?? [])
       .map((r: { slug?: string }) => r.slug ?? "")
       .filter((s: string) => s && !INTERNAL_REALM_RE.test(s));
-
     realmCache.set(region, { slugs, fetchedAt: Date.now() });
     return slugs;
   } catch {
@@ -91,7 +91,7 @@ async function getRealmSlugs(region: string): Promise<string[]> {
   }
 }
 
-// ─── Search result cache (by name, 5min TTL) ──────────────────────────────────
+// ─── Search result cache (5min) ───────────────────────────────────────────────
 interface CharacterResult {
   name: string;
   realm: string;
@@ -105,7 +105,7 @@ interface CharacterResult {
 const searchCache = new Map<string, { results: CharacterResult[]; fetchedAt: number }>();
 const SEARCH_CACHE_TTL = 5 * 60 * 1000;
 
-// ─── Raider.io single realm lookup ────────────────────────────────────────────
+// ─── Raider.io lookup ─────────────────────────────────────────────────────────
 async function lookupCharacter(
   name: string,
   realmSlug: string,
@@ -114,7 +114,8 @@ async function lookupCharacter(
 ): Promise<CharacterResult | null> {
   try {
     const capitalized = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-    const url = `https://raider.io/api/v1/characters/profile?region=${region}&realm=${realmSlug}&name=${encodeURIComponent(capitalized)}`;
+    // Encode both name and realm slug to handle special characters
+    const url = `https://raider.io/api/v1/characters/profile?region=${region}&realm=${encodeURIComponent(realmSlug)}&name=${encodeURIComponent(capitalized)}`;
     const res = await fetch(url, { signal });
     if (!res.ok) return null;
     const data = await res.json();
@@ -131,6 +132,30 @@ async function lookupCharacter(
   } catch {
     return null;
   }
+}
+
+// Run promises with a concurrency limit
+async function withConcurrency<T>(
+  tasks: (() => Promise<T>)[],
+  limit: number
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = [];
+  let index = 0;
+
+  async function worker() {
+    while (index < tasks.length) {
+      const i = index++;
+      try {
+        results[i] = { status: "fulfilled", value: await tasks[i]() };
+      } catch (e) {
+        results[i] = { status: "rejected", reason: e };
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, worker);
+  await Promise.all(workers);
+  return results;
 }
 
 // ─── Route handler ─────────────────────────────────────────────────────────────
@@ -155,7 +180,7 @@ export async function GET(req: NextRequest) {
     getRealmSlugs("tw"),
   ]);
 
-  const allRealms: { realm: string; region: string }[] = [
+  const allRealms = [
     ...euRealms.map((r) => ({ realm: r, region: "eu" })),
     ...usRealms.map((r) => ({ realm: r, region: "us" })),
     ...krRealms.map((r) => ({ realm: r, region: "kr" })),
@@ -163,14 +188,16 @@ export async function GET(req: NextRequest) {
   ];
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  const timeout = setTimeout(() => controller.abort(), 6000);
 
   try {
-    const settled = await Promise.allSettled(
-      allRealms.map(({ realm, region }) =>
-        lookupCharacter(query, realm, region, controller.signal)
-      )
+    // Concurrency limit of 80 to avoid overwhelming Vercel / Raider.io
+    const tasks = allRealms.map(
+      ({ realm, region }) =>
+        () => lookupCharacter(query, realm, region, controller.signal)
     );
+
+    const settled = await withConcurrency(tasks, 80);
     clearTimeout(timeout);
 
     const results: CharacterResult[] = settled
