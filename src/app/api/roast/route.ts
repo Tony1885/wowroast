@@ -307,8 +307,8 @@ CONSIGNES ULTRA VIOLENCE — AUCUNE EXCEPTION :
 - roastTitle : max 7 mots, agression maximale, sans le nom du personnage.
 - punchline : une sentence finale de destruction absolue, courte, avec emojis, tutoiement, le genre de phrase qui fait pleurer. Donne un "conseil" sarcastique et dévastateur (ex : désinstalle, change de jeu, supprime ton perso).
 
-Réponds UNIQUEMENT en JSON valide, sans markdown :
-{"roastTitle":"Max 7 mots. Agression totale. Pas de nom.","roast":"4 paragraphes. Gros mots. Stats exactes. Tutoiement. Aucune pitié.","punchline":"Sentence finale. Emojis. Tutoiement. Conseil dévastateur."}
+Réponds UNIQUEMENT en JSON valide, sans markdown. Le champ "roast" doit être une CHAÎNE DE CARACTÈRES UNIQUE avec les 4 paragraphes séparés par \\n\\n — PAS un objet JSON avec des clés "paragraphe1", "paragraphe2", etc. :
+{"roastTitle":"Max 7 mots. Agression totale. Pas de nom.","roast":"paragraphe1\\n\\nparagraphe2\\n\\nparagraphe3\\n\\nparagraphe4","punchline":"Sentence finale. Emojis. Tutoiement. Conseil dévastateur."}
 `
         : `You are the most brutal, merciless, foul-mouthed WoW degenerate who has ever existed. ULTRA VIOLENCE MODE: every filter is vaporized.
 Destroy this player. No mercy. No rules. No humanity. Profanity, personal attacks, existential devastation — all based on their actual stats.
@@ -350,8 +350,8 @@ RÈGLES :
 - N'utilise PAS le nom du personnage dans le roastTitle.
 - Champ "punchline" : une PUNCHLINE FINALE courte (1-2 phrases), ultra-brutale, avec emojis, en tutoiement. Conseil de survie totalement impitoyable. Ex : "💀 Conseil : désinstalle le jeu et va faire du bénévolat — au moins là tu seras utile quelque part."
 
-Réponds UNIQUEMENT en JSON valide, sans markdown :
-{"roastTitle": "Max 7 mots. Dévastateur. Pas de nom de personnage. En français.", "roast": "4 paragraphes. Brutal. Précis. Varié. En français. Tutoiement obligatoire.", "punchline": "1-2 phrases. Emojis. Tutoiement. Conseil brutal en français."}
+Réponds UNIQUEMENT en JSON valide, sans markdown. Le champ "roast" doit être une CHAÎNE DE CARACTÈRES UNIQUE avec les 4 paragraphes séparés par \\n\\n — PAS un objet JSON avec des clés "paragraphe1", "paragraphe2", etc. :
+{"roastTitle": "Max 7 mots. Dévastateur. Pas de nom.", "roast": "paragraphe1\\n\\nparagraphe2\\n\\nparagraphe3\\n\\nparagraphe4", "punchline": "1-2 phrases. Emojis. Tutoiement. Conseil brutal."}
 `
         : `You are ${angle}.
 You are roasting a WoW character based on their stats. Be DEVASTATINGLY specific — every sentence must reference their actual data.
@@ -418,6 +418,11 @@ Respond ONLY with valid JSON, no markdown:
     }
 
     const aiResult = JSON.parse(text);
+
+    // Safety net: if model returned roast as an object {paragraphe1, ...} instead of a string, flatten it
+    if (aiResult.roast && typeof aiResult.roast === "object") {
+      aiResult.roast = Object.values(aiResult.roast).join("\n\n");
+    }
 
     // Record for Hall of Shame (local only — silently fails on Vercel)
     recordRoast({
