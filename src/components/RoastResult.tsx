@@ -5,6 +5,65 @@ import gsap from "gsap";
 import { getClassColor } from "@/lib/class-data";
 import { RoastResponse } from "@/lib/types";
 
+// ── Text-to-Speech hook — ElevenLabs ────────────────────────────────────────
+function useTTS(text: string, lang: "fr" | "en") {
+  const [speaking, setSpeaking] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
+
+  const stop = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
+    }
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+    setSpeaking(false);
+  }, []);
+
+  const speak = useCallback(async () => {
+    if (speaking) { stop(); return; }
+    if (loading) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, lang }),
+      });
+
+      if (!res.ok) throw new Error("TTS failed");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      blobUrlRef.current = url;
+
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = stop;
+      audio.onerror = stop;
+
+      await audio.play();
+      setSpeaking(true);
+    } catch (e) {
+      console.error("[TTS]", e);
+      stop();
+    } finally {
+      setLoading(false);
+    }
+  }, [text, lang, speaking, loading, stop]);
+
+  // Cleanup on unmount
+  useEffect(() => () => stop(), [stop]);
+
+  return { speaking, loading, speak };
+}
+
 interface RoastResultProps {
   data: NonNullable<RoastResponse["data"]>;
   onBack: () => void;
@@ -47,6 +106,10 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
   const { displayed: typedRoast, done: typingDone } = useTypewriter(roast, 8);
   const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
+
+  // TTS — read the full roast + punchline
+  const ttsText = [roastTitle, roast, punchline].filter(Boolean).join("\n\n");
+  const { speaking, loading: ttsLoading, speak } = useTTS(ttsText, lang);
 
   const handleShare = useCallback(async () => {
     if (!shareCardRef.current) return;
@@ -267,6 +330,62 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
               ROASTED BY AI &bull; DATA FROM RAIDER.IO & WCL
             </p>
             <div className="flex items-center gap-4">
+
+              {/* TTS — speaker button */}
+              {typingDone && (
+                <button
+                  onClick={speak}
+                  disabled={ttsLoading}
+                  title={speaking
+                    ? (lang === "fr" ? "Arrêter" : "Stop")
+                    : (lang === "fr" ? "Écouter le roast" : "Listen to roast")}
+                  className={`flex items-center gap-1.5 text-[11px] font-mono tracking-wider transition-colors disabled:cursor-wait
+                    ${speaking
+                      ? "text-blue-400 hover:text-red-400"
+                      : ttsLoading
+                        ? "text-blue-400/50"
+                        : "text-blue-400/30 hover:text-blue-400"
+                    }`}
+                >
+                  {ttsLoading ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                      {lang === "fr" ? "GÉNÉRATION..." : "GENERATING..."}
+                    </>
+                  ) : speaking ? (
+                    <>
+                      <span className="relative flex items-center">
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+                        </svg>
+                        <span className="ml-1 flex items-end gap-[2px]" style={{height:"12px"}}>
+                          {[0, 0.15, 0.3, 0.45].map((delay, i) => (
+                            <span
+                              key={i}
+                              style={{
+                                width: "2px",
+                                backgroundColor: "#60a5fa",
+                                borderRadius: "1px",
+                                animation: `tts-bar 0.8s ease-in-out ${delay}s infinite`,
+                                height: "100%",
+                              }}
+                            />
+                          ))}
+                        </span>
+                      </span>
+                      STOP
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                      </svg>
+                      {lang === "fr" ? "ÉCOUTER" : "LISTEN"}
+                    </>
+                  )}
+                </button>
+              )}
+
               {/* Share PNG */}
               <button
                 onClick={handleShare}

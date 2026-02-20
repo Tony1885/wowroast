@@ -105,3 +105,8 @@
   color: #60a5fa;
   font-weight: 300;
 }
+
+@keyframes tts-bar {
+  0%, 100% { transform: scaleY(0.4); }
+  50%       { transform: scaleY(1); }
+}
