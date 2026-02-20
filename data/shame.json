@@ -7,9 +7,9 @@
       "class": "Monk",
       "ilvl": 166.188,
       "mplusScore": 3575.7,
-      "roastTitle": "Joueur de merde absolu",
-      "count": 4,
-      "lastRoasted": 1771576068440
+      "roastTitle": "Tu es un dégonflé total",
+      "count": 9,
+      "lastRoasted": 1771611207514
     },
     {
       "name": "Test",
@@ -32,6 +32,28 @@
       "roastTitle": "Failed Hunter",
       "count": 1,
       "lastRoasted": 1771543663224
+    },
+    {
+      "name": "Ricoo",
+      "realm": "Archimonde",
+      "region": "eu",
+      "class": "Paladin",
+      "ilvl": 87,
+      "mplusScore": 0,
+      "roastTitle": "Nul en donjon mythique",
+      "count": 1,
+      "lastRoasted": 1771596384610
+    },
+    {
+      "name": "Azilo",
+      "realm": "Ysondre",
+      "region": "eu",
+      "class": "Demon Hunter",
+      "ilvl": 14,
+      "mplusScore": 0,
+      "roastTitle": "Joueur inexistant total",
+      "count": 1,
+      "lastRoasted": 1771611107057
     }
   ]
 }

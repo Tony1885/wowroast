@@ -98,8 +98,8 @@ export default function LoadingState({ lang }: LoadingProps) {
       if (lastLine) {
         gsap.fromTo(
           lastLine,
-          { opacity: 0, x: -20 },
-          { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }
+          { opacity: 0, y: -8 },
+          { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }
         );
       }
     }
@@ -127,7 +127,7 @@ export default function LoadingState({ lang }: LoadingProps) {
           return (
             <div
               key={`${line}-${i}`}
-              className={`font-mono text-sm flex items-start gap-3 transition-opacity duration-500 ${
+              className={`font-mono text-sm flex items-center justify-center gap-3 transition-opacity duration-500 ${
                 isLast ? "text-blue-300" : "text-gray-700"
               }`}
             >

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchRaiderIOProfile, slugifyServer } from "@/lib/raiderio";
-import { fetchBlizzardCharacter } from "@/lib/blizzard";
+import { fetchBlizzardCharacter, fetchBlizzardCharacterRender } from "@/lib/blizzard";
 import { fetchWCLRankings } from "@/lib/warcraftlogs";
 import { recordRoast } from "@/lib/shame";
 
@@ -104,13 +104,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // === Fetch WCL rankings (non-blocking) ===
+    // === Fetch WCL rankings + full character render (non-blocking) ===
     const serverSlug = slugifyServer(realm);
-    const wclRankings = await fetchWCLRankings(
-      profile.name,
-      serverSlug,
-      regionLower
-    ).catch(() => null);
+    const [wclRankings, mainRenderUrl] = await Promise.all([
+      fetchWCLRankings(profile.name, serverSlug, regionLower).catch(() => null),
+      fetchBlizzardCharacterRender(regionLower, realm, name).catch(() => null),
+    ]);
 
     // === Build data summary ===
     const currentSeason = profile.mythic_plus_scores_by_season?.[0];
@@ -448,6 +447,7 @@ Respond ONLY with valid JSON, no markdown:
           faction: profile.faction,
           ilvl,
           thumbnailUrl: profile.thumbnail_url,
+          mainRenderUrl: mainRenderUrl ?? undefined,
           profileUrl: profile.profile_url,
           achievementPoints: profile.achievement_points,
           honorableKills: profile.honorable_kills,

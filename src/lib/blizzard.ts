@@ -32,6 +32,35 @@ async function getBlizzardToken(): Promise<string | null> {
   }
 }
 
+export async function fetchBlizzardCharacterRender(
+  region: string,
+  realmSlug: string,
+  name: string
+): Promise<string | null> {
+  const token = await getBlizzardToken();
+  if (!token) return null;
+
+  const r     = region.toLowerCase();
+  const realm = realmSlug.toLowerCase();
+  const char  = name.toLowerCase();
+  const url   = `https://${r}.api.blizzard.com/profile/wow/character/${realm}/${char}/character-media?namespace=profile-${r}&locale=en_US`;
+
+  try {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const assets = data?.assets as { key: string; value: string }[] | undefined;
+    // main-raw = fond transparent, main = fond neutre
+    return (
+      assets?.find((a) => a.key === "main-raw")?.value ||
+      assets?.find((a) => a.key === "main")?.value ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchBlizzardCharacter(
   region: string,
   realmSlug: string,

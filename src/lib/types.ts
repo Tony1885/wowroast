@@ -74,6 +74,7 @@ export interface RoastResponse {
       faction: string;
       ilvl: number;
       thumbnailUrl: string;
+      mainRenderUrl?: string;
       profileUrl: string;
       achievementPoints?: number;
       honorableKills: number;
