@@ -52,7 +52,7 @@ export default function HomePage() {
       );
   }, [view]);
 
-  async function handleSearch(name: string, realm: string, region: string) {
+  async function handleSearch(name: string, realm: string, region: string, ultraViolence = false) {
     setView("loading");
     setResult(null);
     setError(null);
@@ -64,7 +64,7 @@ export default function HomePage() {
       const res = await fetch("/api/roast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, realm, region, locale: lang }),
+        body: JSON.stringify({ name, realm, region, locale: lang, ultraViolence }),
       });
 
       const data: RoastResponse = await res.json();

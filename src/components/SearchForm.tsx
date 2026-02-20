@@ -5,7 +5,7 @@ import gsap from "gsap";
 import { REALMS_BY_REGION, Realm } from "@/lib/realms";
 
 interface SearchFormProps {
-  onSearch: (name: string, realm: string, region: string) => void;
+  onSearch: (name: string, realm: string, region: string, ultraViolence?: boolean) => void;
   isLoading: boolean;
   lang: "fr" | "en";
 }
@@ -17,7 +17,9 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
   const [region, setRegion] = useState("");
   const [realm, setRealm] = useState<Realm | null>(null);
   const [realmQuery, setRealmQuery] = useState("");
-  const [charName, setCharName] = useState("");
+  const [charName, setCharName]       = useState("");
+  const [uvOn, setUvOn]               = useState(false);
+  const [uvConfirmed, setUvConfirmed] = useState(false);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const realmInputRef = useRef<HTMLInputElement>(null);
@@ -58,13 +60,21 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
   function pickRealm(r: Realm) {
     setRealm(r);
     setCharName("");
+    setUvOn(false);
+    setUvConfirmed(false);
     setStep(3);
+  }
+
+  function toggleUV() {
+    const next = !uvOn;
+    setUvOn(next);
+    if (!next) setUvConfirmed(false);
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!realm || !region || !charName.trim()) return;
-    onSearch(charName.trim(), realm.slug, region.toLowerCase());
+    onSearch(charName.trim(), realm.slug, region.toLowerCase(), uvOn && uvConfirmed);
   }
 
   const realmList = region
@@ -180,19 +190,87 @@ export default function SearchForm({ onSearch, isLoading, lang }: SearchFormProp
             autoComplete="off"
             spellCheck={false}
             disabled={isLoading}
-            className="w-full rounded-2xl bg-white/[0.04] border border-white/[0.08] px-5 py-5
+            className={`w-full rounded-2xl bg-white/[0.04] px-5 py-5
                        text-white text-lg placeholder-gray-600 focus:outline-none
-                       focus:border-blue-400/40 focus:ring-1 focus:ring-blue-400/20
                        hover:border-white/[0.12] transition-all duration-300 font-medium tracking-wide
-                       disabled:opacity-40"
+                       disabled:opacity-40 border
+                       ${uvConfirmed
+                         ? "border-red-600/60 focus:border-red-500 focus:ring-1 focus:ring-red-500/20"
+                         : "border-white/[0.08] focus:border-blue-400/40 focus:ring-1 focus:ring-blue-400/20"
+                       }`}
           />
 
+          {/* ── Ultra Violence toggle ── */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={toggleUV}
+              disabled={isLoading}
+              className={`w-full flex items-center justify-between px-5 py-3 rounded-2xl border transition-all duration-300
+                ${uvOn
+                  ? "bg-red-950/40 border-red-600/50 shadow-[0_0_20px_rgba(220,38,38,0.15)]"
+                  : "bg-white/[0.02] border-white/[0.06] hover:border-red-900/40 hover:bg-red-950/10"
+                }`}
+            >
+              <span className={`font-black tracking-[0.15em] text-sm flex items-center gap-2 ${uvOn ? "text-red-400" : "text-gray-600"}`}>
+                <span className={`text-base transition-all duration-300 ${uvOn ? "animate-pulse" : ""}`}>🩸</span>
+                ULTRA VIOLENCE
+              </span>
+              {/* Toggle pill */}
+              <div className={`relative w-10 h-5 rounded-full transition-all duration-300 ${uvOn ? "bg-red-600" : "bg-white/[0.08]"}`}>
+                <div className={`absolute top-0.5 w-4 h-4 rounded-full transition-all duration-300 ${uvOn ? "left-5 bg-white" : "left-0.5 bg-gray-600"}`} />
+              </div>
+            </button>
+
+            {/* Confirmation */}
+            {uvOn && !uvConfirmed && (
+              <div className="rounded-2xl border border-red-800/40 bg-red-950/20 px-5 py-4 space-y-3">
+                <p className="text-red-400/90 text-xs font-mono tracking-wider text-center">
+                  {lang === "fr"
+                    ? "⚠️ CE ROAST N'A AUCUNE LIMITE. AUCUNE. TU ES SÛR(E) ?"
+                    : "⚠️ THIS ROAST HAS ZERO LIMITS. ARE YOU SURE?"}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setUvConfirmed(true)}
+                    className="py-2.5 rounded-xl bg-red-700 hover:bg-red-600 text-white font-black tracking-widest text-sm transition-colors"
+                  >
+                    {lang === "fr" ? "OUI" : "YES"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setUvOn(false); setUvConfirmed(false); }}
+                    className="py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-gray-400 font-bold tracking-widest text-sm transition-colors"
+                  >
+                    {lang === "fr" ? "NON" : "NO"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Confirmed state */}
+            {uvOn && uvConfirmed && (
+              <p className="text-red-500/60 text-[11px] font-mono tracking-wider text-center">
+                {lang === "fr" ? "🩸 MODE ACTIVÉ — AUCUNE PITIÉ" : "🩸 MODE ACTIVE — NO MERCY"}
+              </p>
+            )}
+          </div>
+
+          {/* Submit */}
           <button
             type="submit"
-            disabled={isLoading || !charName.trim()}
-            className="w-full btn-roast text-xl tracking-[0.15em]"
+            disabled={isLoading || !charName.trim() || (uvOn && !uvConfirmed)}
+            className={`w-full text-xl tracking-[0.15em] transition-all duration-300
+              ${uvConfirmed
+                ? "py-5 rounded-2xl font-black bg-red-700 hover:bg-red-600 text-white shadow-[0_0_30px_rgba(220,38,38,0.3)] hover:shadow-[0_0_40px_rgba(220,38,38,0.5)] disabled:opacity-40 disabled:cursor-not-allowed"
+                : "btn-roast"
+              }`}
           >
-            {submitLabel}
+            {uvConfirmed
+              ? (lang === "fr" ? "💀 DÉTRUIRE" : "💀 ANNIHILATE")
+              : submitLabel
+            }
           </button>
         </form>
       )}

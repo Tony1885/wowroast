@@ -5,11 +5,33 @@
       "realm": "Ysondre",
       "region": "eu",
       "class": "Monk",
-      "ilvl": 166,
+      "ilvl": 166.188,
       "mplusScore": 3575.7,
-      "roastTitle": "Choix de classe catastrophique",
+      "roastTitle": "Joueur de merde absolu",
+      "count": 4,
+      "lastRoasted": 1771576068440
+    },
+    {
+      "name": "Test",
+      "realm": "Kazzak",
+      "region": "eu",
+      "class": "Warrior",
+      "ilvl": 104,
+      "mplusScore": 0,
+      "roastTitle": "Warcraft Underachiever",
       "count": 1,
-      "lastRoasted": 1771523420297
+      "lastRoasted": 1771543595545
+    },
+    {
+      "name": "Meeres",
+      "realm": "Tarren Mill",
+      "region": "eu",
+      "class": "Hunter",
+      "ilvl": 111,
+      "mplusScore": 0,
+      "roastTitle": "Failed Hunter",
+      "count": 1,
+      "lastRoasted": 1771543663224
     }
   ]
 }
