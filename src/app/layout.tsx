@@ -3,7 +3,7 @@ import { Analytics } from "@vercel/analytics/react";
 import Script from "next/script";
 import "./globals.css";
 
-const ADSENSE_PUB_ID = "YOUR_PUB_ID"; // ← remplace par ca-pub-XXXXXXXXXXXXXXXX
+const ADSENSE_PUB_ID = "ca-pub-8348522858446705";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://wowroast.com"),

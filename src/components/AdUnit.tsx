@@ -32,7 +32,7 @@ export default function AdUnit({ adSlot, adFormat = "auto", className = "" }: Ad
       <ins
         className="adsbygoogle"
         style={{ display: "block" }}
-        data-ad-client="YOUR_PUB_ID"   // ← remplace par ca-pub-XXXXXXXXXXXXXXXX
+        data-ad-client="ca-pub-8348522858446705"
         data-ad-slot={adSlot}
         data-ad-format={adFormat}
         data-full-width-responsive="true"
