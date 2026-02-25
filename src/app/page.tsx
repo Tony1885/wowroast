@@ -155,8 +155,7 @@ export default function HomePage() {
           </div>
 
           <footer className="text-center py-8 text-gray-800 text-[11px] font-mono tracking-wider">
-            <p>POWERED BY RAIDER.IO, WARCRAFT LOGS & AI</p>
-            <p className="mt-1 text-gray-800/60">
+            <p className="text-gray-800/60">
               {lang === "fr"
                 ? "C'EST DE LA SATIRE. VOS SENTIMENTS NE NOUS CONCERNENT PAS."
                 : "THIS IS SATIRE. WE DON'T CARE ABOUT YOUR FEELINGS."}

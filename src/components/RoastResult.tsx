@@ -113,7 +113,7 @@ function speakWebSpeech(
 }
 
 // ── Text-to-Speech hook ───────────────────────────────────────────────────────
-function useTTS(text: string, lang: "fr" | "en", gender: "female" | "male") {
+function useTTS(text: string, lang: "fr" | "en") {
   const [speaking, setSpeaking] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [volume, setVolume]     = useState(1);
@@ -152,7 +152,7 @@ function useTTS(text: string, lang: "fr" | "en", gender: "female" | "male") {
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: cleaned, lang, gender }),
+        body: JSON.stringify({ text: cleaned, lang, gender: "female" }),
       });
 
       // Quota épuisé ou erreur → fallback Web Speech
@@ -202,8 +202,6 @@ function useTTS(text: string, lang: "fr" | "en", gender: "female" | "male") {
   return { speaking, loading, volume, setVolume, speak };
 }
 
-type VoiceGender = "female" | "male";
-
 interface RoastResultProps {
   data: NonNullable<RoastResponse["data"]>;
   onBack: () => void;
@@ -244,13 +242,11 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
   const shareCardRef = useRef<HTMLDivElement>(null);
 
   const { displayed: typedRoast, done: typingDone } = useTypewriter(roast, 8);
-  const [copied, setCopied] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const [voiceGender, setVoiceGender] = useState<VoiceGender>("female");
 
   // TTS — read the full roast + punchline
   const ttsText = [roastTitle, roast, punchline].filter(Boolean).join("\n\n");
-  const { speaking, loading: ttsLoading, volume, setVolume, speak } = useTTS(ttsText, lang, voiceGender);
+  const { speaking, loading: ttsLoading, volume, setVolume, speak } = useTTS(ttsText, lang);
 
   const handleShare = useCallback(async () => {
     if (!shareCardRef.current) return;
@@ -275,13 +271,6 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
     }
   }, [character, roast, roastTitle, punchline]);
 
-  const handleCopy = useCallback(() => {
-    const textToCopy = `${roastTitle}\n\n${roast}${punchline ? `\n\n${punchline}` : ""}\n\n— WoWRoast.com`;
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [roastTitle, roast, punchline]);
 
   // Entry animations
   useEffect(() => {
@@ -359,69 +348,70 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
         {/* Character Card */}
         <div
           ref={cardRef}
-          className="glass-card mb-8 overflow-hidden"
+          className="glass-card p-6 flex flex-col md:flex-row items-center gap-6 mb-8"
         >
-          <div className="flex flex-col md:flex-row items-stretch">
+          {character.thumbnailUrl && (
+            <div
+              className="relative w-20 h-20 rounded-xl overflow-hidden border-2 shrink-0"
+              style={{ borderColor: classColor }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={character.thumbnailUrl}
+                alt={character.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
 
-            {/* Full character render */}
-            {character.mainRenderUrl && (
-              <div className="relative w-full md:w-48 shrink-0 flex items-end justify-center bg-gradient-to-t from-black/60 to-transparent overflow-hidden"
-                style={{ minHeight: "200px" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={character.mainRenderUrl}
-                  alt={character.name}
-                  className="h-56 md:h-full w-auto object-contain object-bottom drop-shadow-2xl"
-                  style={{ maxHeight: "280px" }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/40 pointer-events-none hidden md:block" />
-              </div>
-            )}
+          <div className="flex-1 text-center md:text-left">
+            <h2
+              className="text-2xl font-bold font-cinzel tracking-wide"
+              style={{ color: classColor }}
+            >
+              {character.name}
+            </h2>
+            <p className="text-gray-500 text-sm mt-0.5">
+              {character.race} {character.spec} {character.class} &bull;{" "}
+              {character.realm} ({character.region.toUpperCase()}) &bull;{" "}
+              {character.faction}
+            </p>
+          </div>
 
-            {/* Info */}
-            <div className="flex-1 p-6 flex flex-col md:flex-row items-center gap-6">
-              {/* Avatar (fallback if no full render) */}
-              {!character.mainRenderUrl && character.thumbnailUrl && (
-                <div className="relative w-20 h-20 rounded-xl overflow-hidden border-2 shrink-0"
-                  style={{ borderColor: classColor }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={character.thumbnailUrl} alt={character.name} className="w-full h-full object-cover" />
-                </div>
-              )}
-
-              <div className="flex-1 text-center md:text-left">
-                <h2 className="text-2xl font-bold font-cinzel tracking-wide" style={{ color: classColor }}>
-                  {character.name}
-                </h2>
-                <p className="text-gray-500 text-sm mt-0.5">
-                  {character.race} {character.spec} {character.class} &bull;{" "}
-                  {character.realm} ({character.region.toUpperCase()}) &bull; {character.faction}
-                </p>
-              </div>
-
-              <div className="flex gap-8 shrink-0 items-center">
-                <div className="text-center">
-                  <p className="text-2xl font-bold font-cinzel" style={{ color: classColor }}>{character.ilvl}</p>
-                  <p className="text-[10px] text-gray-700 uppercase tracking-[0.2em] font-mono">iLvl</p>
-                </div>
+          <div className="flex gap-8 shrink-0 items-center">
+            <div className="text-center">
+              <p
+                className="text-2xl font-bold font-cinzel"
+                style={{ color: classColor }}
+              >
+                {character.ilvl}
+              </p>
+              <p className="text-[10px] text-gray-700 uppercase tracking-[0.2em] font-mono">
+                iLvl
+              </p>
+            </div>
+            <div className="w-px h-8 bg-white/[0.06]" />
+            <div className="text-center">
+              <p className="text-2xl font-bold font-cinzel text-blue-400">
+                {mythicPlus.score.toFixed(0)}
+              </p>
+              <p className="text-[10px] text-gray-700 uppercase tracking-[0.2em] font-mono">
+                M+ Score
+              </p>
+            </div>
+            {latestRaid && (
+              <>
                 <div className="w-px h-8 bg-white/[0.06]" />
                 <div className="text-center">
-                  <p className="text-2xl font-bold font-cinzel text-blue-400">{mythicPlus.score.toFixed(0)}</p>
-                  <p className="text-[10px] text-gray-700 uppercase tracking-[0.2em] font-mono">M+ Score</p>
+                  <p className="text-lg font-bold font-cinzel text-blue-400">
+                    {latestRaid.summary}
+                  </p>
+                  <p className="text-[10px] text-gray-700 uppercase tracking-[0.2em] font-mono">
+                    {latestRaid.raidName.split(" ").slice(0, 2).join(" ")}
+                  </p>
                 </div>
-                {latestRaid && (
-                  <>
-                    <div className="w-px h-8 bg-white/[0.06]" />
-                    <div className="text-center">
-                      <p className="text-lg font-bold font-cinzel text-blue-400">{latestRaid.summary}</p>
-                      <p className="text-[10px] text-gray-700 uppercase tracking-[0.2em] font-mono">
-                        {latestRaid.raidName.split(" ").slice(0, 2).join(" ")}
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -471,20 +461,9 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
             </p>
             <div className="flex items-center gap-4">
 
-              {/* TTS — gender + speaker + volume */}
+              {/* TTS — speaker + volume */}
               {typingDone && (
                 <div className="flex items-center gap-2">
-
-                  {/* M / F toggle */}
-                  <button
-                    onClick={() => setVoiceGender(g => g === "female" ? "male" : "female")}
-                    disabled={speaking || ttsLoading}
-                    title={lang === "fr" ? "Changer de voix" : "Switch voice"}
-                    className="text-[11px] font-mono tracking-wider text-blue-400/30 hover:text-blue-400 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    {voiceGender === "female" ? "♀" : "♂"}
-                  </button>
-                  <span className="text-gray-800 text-[10px]">|</span>
                   <button
                     onClick={speak}
                     disabled={ttsLoading}
@@ -528,19 +507,17 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
                     )}
                   </button>
 
-                  {/* Volume slider */}
-                  {(speaking || ttsLoading) && (
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={volume}
-                      onChange={(e) => setVolume(Number(e.target.value))}
-                      className="w-16 h-[2px] accent-blue-400 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
-                      title={lang === "fr" ? "Volume" : "Volume"}
-                    />
-                  )}
+                  {/* Volume slider — toujours visible */}
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={volume}
+                    onChange={(e) => setVolume(Number(e.target.value))}
+                    className="w-16 h-[2px] accent-blue-400 cursor-pointer opacity-40 hover:opacity-100 transition-opacity"
+                    title={lang === "fr" ? "Volume" : "Volume"}
+                  />
                 </div>
               )}
 
@@ -548,46 +525,22 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
               <button
                 onClick={handleShare}
                 disabled={!typingDone || sharing}
-                className="flex items-center gap-1.5 text-[11px] font-mono tracking-wider
-                           text-blue-400/30 hover:text-blue-400 transition-colors
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-blue-400/20 bg-blue-400/[0.04]
+                           text-[12px] font-mono tracking-wider text-blue-400/50 hover:text-blue-400
+                           hover:border-blue-400/40 hover:bg-blue-400/[0.08] transition-all duration-200
                            disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {sharing ? (
                   <>
-                    <span className="w-3.5 h-3.5 border border-white/10 border-t-blue-400/70 rounded-full animate-spin" />
+                    <span className="w-4 h-4 border border-white/10 border-t-blue-400/70 rounded-full animate-spin" />
                     GENERATING...
                   </>
                 ) : (
                   <>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    SHARE PNG
-                  </>
-                )}
-              </button>
-
-              {/* Copy text */}
-              <button
-                onClick={handleCopy}
-                disabled={!typingDone}
-                className="flex items-center gap-1.5 text-[11px] font-mono tracking-wider
-                           text-blue-400/30 hover:text-blue-400 transition-colors
-                           disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {copied ? (
-                  <>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    COPIED
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    COPY ROAST
+                    SCREENSHOT
                   </>
                 )}
               </button>
