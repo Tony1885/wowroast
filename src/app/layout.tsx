@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
-import Script from "next/script";
 import "./globals.css";
-
-const ADSENSE_PUB_ID = "ca-pub-8348522858446705";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://wowroast.com"),
@@ -68,11 +65,11 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <meta name="theme-color" content="#07070a" />
-        <Script
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script
           async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_PUB_ID}`}
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8348522858446705"
           crossOrigin="anonymous"
-          strategy="beforeInteractive"
         />
       </head>
       <body className="min-h-screen bg-[#07070a] text-gray-200 antialiased">
