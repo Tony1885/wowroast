@@ -5,203 +5,6 @@ import gsap from "gsap";
 import { getClassColor } from "@/lib/class-data";
 import { RoastResponse } from "@/lib/types";
 
-// ── Nettoie + expand abréviations avant TTS ───────────────────────────────────
-function cleanForTTS(raw: string, lang: "fr" | "en"): string {
-  const isFr = lang === "fr";
-
-  const ABBR_FR: [RegExp, string][] = [
-    [/\bWoW\b/g,        "World of Warcraft"],
-    [/\bM\+\+?\b/g,     "Mythique Plus"],
-    [/\biLvl\b/gi,      "niveau d'objet"],
-    [/\bilvl\b/gi,      "niveau d'objet"],
-    [/\bRL\b/g,         "chef de raid"],
-    [/\bGM\b/g,         "chef de guilde"],
-    [/\bLFR\b/g,        "cherche raid"],
-    [/\bMDI\b/g,        "Mythic Dungeon Invitational"],
-    [/\bDPS\b/g,        "dégâts par seconde"],
-    [/\bHPS\b/g,        "soins par seconde"],
-    [/\bAoE\b/gi,       "zone de dégâts"],
-    [/\bCD\b/g,         "temps de recharge"],
-    [/\bGCD\b/g,        "temps de recharge global"],
-    [/(\d+)\/(\d+)M\b/g, "$1 sur $2 en Mythique"],
-    [/(\d+)\/(\d+)H\b/g, "$1 sur $2 en Héroïque"],
-    [/(\d+)\/(\d+)N\b/g, "$1 sur $2 en Normal"],
-    [/\+(\d+)\b/g,      "plus $1"],
-  ];
-
-  const ABBR_EN: [RegExp, string][] = [
-    [/\bWoW\b/g,        "World of Warcraft"],
-    [/\bM\+\+?\b/g,     "Mythic Plus"],
-    [/\biLvl\b/gi,      "item level"],
-    [/\bilvl\b/gi,      "item level"],
-    [/\bRL\b/g,         "raid leader"],
-    [/\bGM\b/g,         "guild master"],
-    [/\bLFR\b/g,        "looking for raid"],
-    [/\bMDI\b/g,        "Mythic Dungeon Invitational"],
-    [/\bHPS\b/g,        "healing per second"],
-    [/\bAoE\b/gi,       "area of effect"],
-    [/\bCD\b/g,         "cooldown"],
-    [/\bGCD\b/g,        "global cooldown"],
-    [/(\d+)\/(\d+)M\b/g, "$1 out of $2 Mythic"],
-    [/(\d+)\/(\d+)H\b/g, "$1 out of $2 Heroic"],
-    [/(\d+)\/(\d+)N\b/g, "$1 out of $2 Normal"],
-    [/\+(\d+)\b/g,      "plus $1"],
-  ];
-
-  let text = raw
-    // Strip emojis
-    .replace(/[\u{1F000}-\u{1FFFF}]/gu, "")
-    .replace(/[\u2600-\u27BF]/gu, "")
-    .replace(/[\u{1F300}-\u{1FBFF}]/gu, "")
-    // Strip markdown
-    .replace(/\*+/g, "").replace(/_+/g, "").replace(/#{1,6}\s/g, "")
-    .replace(/\n{3,}/g, "\n\n");
-
-  const abbrs = isFr ? ABBR_FR : ABBR_EN;
-  for (const [pattern, replacement] of abbrs) {
-    text = text.replace(pattern, replacement);
-  }
-
-  return text.trim();
-}
-
-// ── Web Speech API fallback ───────────────────────────────────────────────────
-function speakWebSpeech(
-  text: string,
-  lang: "fr" | "en",
-  volume: number,
-  onStart: () => void,
-  onEnd: () => void
-): () => void {
-  const synth = window.speechSynthesis;
-  synth.cancel();
-
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang   = lang === "fr" ? "fr-FR" : "en-US";
-  utterance.rate   = 1.05;
-  utterance.volume = volume;
-
-  const pickVoice = () => {
-    const voices = synth.getVoices();
-    const code = lang === "fr" ? "fr" : "en";
-    const pool = voices.filter((v) => v.lang.toLowerCase().startsWith(code));
-    return (
-      pool.find((v) => /natural|neural|enhanced|premium/i.test(v.name)) ||
-      pool.find((v) => !v.localService) ||
-      pool[0] || null
-    );
-  };
-
-  const start = () => {
-    const v = pickVoice();
-    if (v) utterance.voice = v;
-    utterance.onstart = onStart;
-    utterance.onend   = onEnd;
-    utterance.onerror = onEnd;
-    synth.speak(utterance);
-    // Chrome cuts off after ~15s — keepalive
-    const ka = setInterval(() => {
-      if (synth.speaking) { synth.pause(); synth.resume(); }
-      else clearInterval(ka);
-    }, 10000);
-  };
-
-  if (synth.getVoices().length > 0) start();
-  else { synth.onvoiceschanged = () => { synth.onvoiceschanged = null; start(); }; }
-
-  return () => synth.cancel();
-}
-
-// ── Text-to-Speech hook ───────────────────────────────────────────────────────
-function useTTS(text: string, lang: "fr" | "en") {
-  const [speaking, setSpeaking] = useState(false);
-  const [loading, setLoading]   = useState(false);
-  const [volume, setVolume]     = useState(1);
-  const audioRef   = useRef<HTMLAudioElement | null>(null);
-  const blobUrlRef = useRef<string | null>(null);
-  const stopWSRef  = useRef<(() => void) | null>(null);
-  const volumeRef  = useRef(1);
-
-  useEffect(() => {
-    volumeRef.current = volume;
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume]);
-
-  const stop = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-      audioRef.current = null;
-    }
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = null;
-    }
-    if (stopWSRef.current) { stopWSRef.current(); stopWSRef.current = null; }
-    setSpeaking(false);
-  }, []);
-
-  const speak = useCallback(async () => {
-    if (speaking) { stop(); return; }
-    if (loading) return;
-
-    const cleaned = cleanForTTS(text, lang);
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: cleaned, lang, gender: "female" }),
-      });
-
-      // Quota épuisé ou erreur → fallback Web Speech
-      if (!res.ok) {
-        setLoading(false);
-        if (typeof window !== "undefined" && window.speechSynthesis) {
-          setSpeaking(true);
-          stopWSRef.current = speakWebSpeech(
-            cleaned, lang, volumeRef.current,
-            () => setSpeaking(true),
-            () => { stopWSRef.current = null; setSpeaking(false); }
-          );
-        }
-        return;
-      }
-
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      blobUrlRef.current = url;
-
-      const audio = new Audio(url);
-      audio.volume = volumeRef.current;
-      audioRef.current = audio;
-      audio.onended = stop;
-      audio.onerror = stop;
-      await audio.play();
-      setSpeaking(true);
-    } catch {
-      // Fallback Web Speech sur toute erreur réseau
-      if (typeof window !== "undefined" && window.speechSynthesis) {
-        setSpeaking(true);
-        stopWSRef.current = speakWebSpeech(
-          cleaned, lang, volumeRef.current,
-          () => setSpeaking(true),
-          () => { stopWSRef.current = null; setSpeaking(false); }
-        );
-      } else {
-        stop();
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [text, lang, speaking, loading, stop]);
-
-  useEffect(() => () => stop(), [stop]);
-
-  return { speaking, loading, volume, setVolume, speak };
-}
-
 interface RoastResultProps {
   data: NonNullable<RoastResponse["data"]>;
   onBack: () => void;
@@ -243,10 +46,15 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
 
   const { displayed: typedRoast, done: typingDone } = useTypewriter(roast, 8);
   const [sharing, setSharing] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  // TTS — read the full roast + punchline
-  const ttsText = [roastTitle, roast, punchline].filter(Boolean).join("\n\n");
-  const { speaking, loading: ttsLoading, volume, setVolume, speak } = useTTS(ttsText, lang);
+  const handleCopy = useCallback(() => {
+    const textToCopy = `${roastTitle}\n\n${roast}${punchline ? `\n\n${punchline}` : ""}\n\n— WoWRoast.com`;
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [roastTitle, roast, punchline]);
 
   const handleShare = useCallback(async () => {
     if (!shareCardRef.current) return;
@@ -455,104 +263,61 @@ export default function RoastResult({ data, onBack, lang }: RoastResultProps) {
             </div>
           )}
 
-          <div className="mt-8 pt-6 border-t border-white/[0.04] flex items-center justify-between">
+          {/* Barre du bas */}
+          <div className="mt-8 pt-6 border-t border-white/[0.04] flex items-center justify-between gap-3">
             <p className="text-[11px] text-gray-800 font-mono tracking-wider">
-              ROASTED BY AI &bull; DATA FROM RAIDER.IO & WCL
+              ROASTED BY WOWROAST
             </p>
-            <div className="flex items-center gap-4">
 
-              {/* TTS — speaker + volume */}
-              {typingDone && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={speak}
-                    disabled={ttsLoading}
-                    title={speaking
-                      ? (lang === "fr" ? "Arrêter" : "Stop")
-                      : (lang === "fr" ? "Écouter le roast" : "Listen to roast")}
-                    className={`flex items-center gap-1.5 text-[11px] font-mono tracking-wider transition-colors disabled:cursor-wait
-                      ${speaking
-                        ? "text-blue-400 hover:text-red-400"
-                        : ttsLoading
-                          ? "text-blue-400/50"
-                          : "text-blue-400/30 hover:text-blue-400"
-                      }`}
-                  >
-                    {ttsLoading ? (
-                      <>
-                        <span className="w-3.5 h-3.5 border border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-                        {lang === "fr" ? "GÉNÉRATION..." : "GENERATING..."}
-                      </>
-                    ) : speaking ? (
-                      <>
-                        <span className="relative flex items-center">
-                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
-                          </svg>
-                          <span className="ml-1 flex items-end gap-[2px]" style={{height:"12px"}}>
-                            {[0, 0.15, 0.3, 0.45].map((delay, i) => (
-                              <span key={i} style={{width:"2px",backgroundColor:"#60a5fa",borderRadius:"1px",animation:`tts-bar 0.8s ease-in-out ${delay}s infinite`,height:"100%"}} />
-                            ))}
-                          </span>
-                        </span>
-                        STOP
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                        </svg>
-                        {lang === "fr" ? "ÉCOUTER" : "LISTEN"}
-                      </>
-                    )}
-                  </button>
-
-                  {/* Volume slider — toujours visible */}
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={volume}
-                    onChange={(e) => setVolume(Number(e.target.value))}
-                    className="w-16 h-[2px] accent-blue-400 cursor-pointer opacity-40 hover:opacity-100 transition-opacity"
-                    title={lang === "fr" ? "Volume" : "Volume"}
-                  />
-                </div>
+            {/* Copier */}
+            <button
+              onClick={handleCopy}
+              disabled={!typingDone}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02]
+                         text-[12px] font-mono tracking-wider text-blue-400/40 hover:text-blue-400
+                         hover:border-blue-400/30 hover:bg-blue-400/[0.05] transition-all duration-200
+                         disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {copied ? (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {lang === "fr" ? "COPIÉ" : "COPIED"}
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  {lang === "fr" ? "COPIER" : "COPY"}
+                </>
               )}
+            </button>
 
-              {/* Share PNG */}
-              <button
-                onClick={handleShare}
-                disabled={!typingDone || sharing}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-blue-400/20 bg-blue-400/[0.04]
-                           text-[12px] font-mono tracking-wider text-blue-400/50 hover:text-blue-400
-                           hover:border-blue-400/40 hover:bg-blue-400/[0.08] transition-all duration-200
-                           disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {sharing ? (
-                  <>
-                    <span className="w-4 h-4 border border-white/10 border-t-blue-400/70 rounded-full animate-spin" />
-                    GENERATING...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    SCREENSHOT
-                  </>
-                )}
-              </button>
-              <a
-                href={character.profileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] text-blue-400/30 hover:text-blue-400 transition-colors font-mono tracking-wider"
-              >
-                RAIDER.IO
-              </a>
-            </div>
+            {/* Screenshot */}
+            <button
+              onClick={handleShare}
+              disabled={!typingDone || sharing}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-blue-400/20 bg-blue-400/[0.04]
+                         text-[12px] font-mono tracking-wider text-blue-400/50 hover:text-blue-400
+                         hover:border-blue-400/40 hover:bg-blue-400/[0.08] transition-all duration-200
+                         disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {sharing ? (
+                <>
+                  <span className="w-3.5 h-3.5 border border-white/10 border-t-blue-400/70 rounded-full animate-spin" />
+                  GENERATING...
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  SCREENSHOT
+                </>
+              )}
+            </button>
           </div>
         </div>
 
