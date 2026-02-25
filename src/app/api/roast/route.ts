@@ -3,6 +3,7 @@ import { fetchRaiderIOProfile, slugifyServer } from "@/lib/raiderio";
 import { fetchBlizzardCharacter, fetchBlizzardCharacterRender } from "@/lib/blizzard";
 import { fetchWCLRankings } from "@/lib/warcraftlogs";
 import { recordRoast } from "@/lib/shame";
+import { getFallbackRoast } from "@/lib/fallback-roasts";
 
 export const maxDuration = 60;
 
@@ -35,6 +36,10 @@ function sanitizeForPrompt(str: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Variables pour le fallback — déclarées hors du try pour être accessibles dans le catch
+  let fallbackVars: Parameters<typeof getFallbackRoast>[1] | null = null;
+  let fallbackLang: "fr" | "en" = "en";
+
   try {
     // Rate limiting
     const ip =
@@ -84,6 +89,7 @@ export async function POST(request: NextRequest) {
 
     // Detect language
     const lang = (typeof locale === "string" && locale.startsWith("fr")) ? "French" : "English";
+    fallbackLang = lang === "French" ? "fr" : "en";
 
     // === Fetch profile — Raider.io first, Blizzard as fallback for inactive chars ===
     let profile = await fetchRaiderIOProfile(regionLower, realm, name);
@@ -171,6 +177,18 @@ export async function POST(request: NextRequest) {
     const charName = sanitizeForPrompt(profile.name);
     const charSpec = sanitizeForPrompt(profile.active_spec_name);
     const charClass = sanitizeForPrompt(profile.class);
+
+    // Stocker les données pour le fallback (accessible dans le catch)
+    fallbackVars = {
+      name:        profile.name,
+      cls:         charClass,
+      spec:        charSpec,
+      ilvl,
+      score:       mplusScore,
+      realm:       profile.realm,
+      region:      regionLower,
+      raidSummary: raids[0]?.summary ?? (lang === "French" ? "Aucune progression" : "No progression"),
+    };
     const charRace = sanitizeForPrompt(profile.race);
     const charFaction = sanitizeForPrompt(profile.faction);
     const charGender = sanitizeForPrompt(profile.gender);
@@ -403,7 +421,7 @@ Respond ONLY with valid JSON, no markdown:
     if (!groqRes.ok) {
       const errBody = await groqRes.text();
       console.error("[Groq] Error:", groqRes.status, errBody);
-      throw new Error(`AI service error`);
+      throw new Error("groq_unavailable");
     }
 
     const groqData = await groqRes.json();
@@ -466,6 +484,37 @@ Respond ONLY with valid JSON, no markdown:
     });
   } catch (error: any) {
     console.error("[Roast API] Error:", error?.message || error);
+
+    // ── Fallback roast si Groq est indisponible ───────────────────────────────
+    if (fallbackVars) {
+      const fallback = getFallbackRoast(fallbackLang, fallbackVars);
+      return NextResponse.json({
+        success: true,
+        data: {
+          character: {
+            name:              fallbackVars.name,
+            realm:             fallbackVars.realm,
+            region:            fallbackVars.region,
+            class:             fallbackVars.cls,
+            spec:              fallbackVars.spec,
+            race:              "",
+            faction:           "",
+            ilvl:              fallbackVars.ilvl,
+            profileUrl:        "",
+            thumbnailUrl:      undefined,
+            achievementPoints: undefined,
+            honorableKills:    undefined,
+          },
+          mythicPlus:      { score: fallbackVars.score, bestRuns: [], recentRuns: [] },
+          raidProgression: [],
+          wclRankings:     null,
+          roast:           fallback.roast,
+          roastTitle:      fallback.roastTitle,
+          punchline:       fallback.punchline,
+        },
+      });
+    }
+
     return NextResponse.json(
       { success: false, error: "Something went wrong. Try again." },
       { status: 500 }
