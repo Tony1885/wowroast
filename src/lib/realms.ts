@@ -87,7 +87,7 @@ const EU_SLUGS = [
   "bronze-dragonflight","bronzebeard","burning-blade","burning-legion",
   "burning-steppes","chamber-of-aspects","chogall","chromaggus",
   "crushridge","daggerspine","dalaran","dalvengyr","darkmoon-faire",
-  "darksorrow","darkspear","deathwing","doomhammer","draenor","dragonblight",
+  "darksorrow","darkspear","deathwing","dentarg","doomhammer","draenor","dragonblight",
   "dragonmaw","drakthul","drekthar","dun-morogh","dunemaul","durotan",
   "earthen-ring","eitrigg","eldrethalas","elune","emerald-dream","emeriss",
   "eonar","eredar","eversong","executus","exodar","frostmane","frostmourne",
@@ -128,7 +128,7 @@ const EU_SLUGS = [
   "les-sentinelles","marécage-de-zangar","naxxramas","rashgarroth",
   "sinstralis","temple-noir","theradras","tyrande","voljin",
   // Spanish (ES)
-  "colinas-pardas","los-errantes","minahonda","sanguino",
+  "colinas-pardas","cthun","los-errantes","minahonda","sanguino",
   // Portuguese (PT)
   "aggra-português",
   // Italian (IT)

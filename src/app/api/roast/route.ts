@@ -420,8 +420,9 @@ Respond ONLY with valid JSON, no markdown:
 
     if (!groqRes.ok) {
       const errBody = await groqRes.text();
-      console.error("[Groq] Error:", groqRes.status, errBody);
-      throw new Error("groq_unavailable");
+      const isRateLimit = groqRes.status === 429;
+      console.error(`[Groq] ${isRateLimit ? "RATE LIMITED (429)" : `Error ${groqRes.status}`}:`, errBody);
+      throw new Error(isRateLimit ? "groq_rate_limited" : "groq_unavailable");
     }
 
     const groqData = await groqRes.json();
@@ -486,10 +487,14 @@ Respond ONLY with valid JSON, no markdown:
     console.error("[Roast API] Error:", error?.message || error);
 
     // ── Fallback roast si Groq est indisponible ───────────────────────────────
+    const isRateLimitError = error?.message === "groq_rate_limited";
+    console.error(`[Roast API] Using fallback (reason: ${error?.message || "unknown"})`);
     if (fallbackVars) {
       const fallback = getFallbackRoast(fallbackLang, fallbackVars);
       return NextResponse.json({
         success: true,
+        isFallback: true,
+        fallbackReason: isRateLimitError ? "rate_limited" : "unavailable",
         data: {
           character: {
             name:              fallbackVars.name,
