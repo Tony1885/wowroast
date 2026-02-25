@@ -138,13 +138,6 @@ export default function HomePage() {
               .com
             </p>
 
-            <p
-              ref={taglineRef}
-              className="text-3xl md:text-4xl text-white/90 font-cinzel font-bold mb-16 opacity-0"
-            >
-              Roast me !
-            </p>
-
             <SearchForm onSearch={handleSearch} isLoading={false} lang={lang} />
 
             {error && (
