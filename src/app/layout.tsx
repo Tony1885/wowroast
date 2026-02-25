@@ -68,16 +68,16 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <meta name="theme-color" content="#07070a" />
-      </head>
-      <body className="min-h-screen bg-[#07070a] text-gray-200 antialiased">
-        {children}
-        <Analytics />
         <Script
           async
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_PUB_ID}`}
           crossOrigin="anonymous"
-          strategy="afterInteractive"
+          strategy="beforeInteractive"
         />
+      </head>
+      <body className="min-h-screen bg-[#07070a] text-gray-200 antialiased">
+        {children}
+        <Analytics />
       </body>
     </html>
   );
