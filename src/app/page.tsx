@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import gsap from "gsap";
+import Link from "next/link";
 import SmoothScroll from "@/components/SmoothScroll";
 import SearchForm from "@/components/SearchForm";
 import RoastResult from "@/components/RoastResult";
@@ -147,12 +148,25 @@ export default function HomePage() {
             )}
           </div>
 
-          <footer className="text-center py-8 text-gray-800 text-[11px] font-mono tracking-wider">
+          <footer className="text-center py-8 text-gray-800 text-[11px] font-mono tracking-wider space-y-2">
             <p className="text-gray-800/60">
               {lang === "fr"
                 ? "C'EST DE LA SATIRE. VOS SENTIMENTS NE NOUS CONCERNENT PAS."
                 : "THIS IS SATIRE. WE DON'T CARE ABOUT YOUR FEELINGS."}
             </p>
+            <div className="flex items-center justify-center gap-4 text-gray-800/40">
+              <Link href="/mentions-legales" className="hover:text-gray-600 transition-colors">
+                {lang === "fr" ? "Mentions légales" : "Legal Notice"}
+              </Link>
+              <span>·</span>
+              <Link href="/politique-de-confidentialite" className="hover:text-gray-600 transition-colors">
+                {lang === "fr" ? "Confidentialité" : "Privacy Policy"}
+              </Link>
+              <span>·</span>
+              <Link href="/a-propos" className="hover:text-gray-600 transition-colors">
+                {lang === "fr" ? "À propos" : "About"}
+              </Link>
+            </div>
           </footer>
         </div>
       )}
