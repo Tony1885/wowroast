@@ -155,17 +155,17 @@ export default function HomePage() {
                 : "THIS IS SATIRE. WE DON'T CARE ABOUT YOUR FEELINGS."}
             </p>
             <div className="flex items-center justify-center gap-3 mt-1">
-              <Link href="/mentions-legales"
+              <Link href={`/mentions-legales?lang=${lang}`}
                 className="px-3 py-1 rounded border border-white/[0.08] text-gray-500
                            hover:text-white hover:border-white/20 transition-all duration-200">
                 {lang === "fr" ? "Mentions légales" : "Legal Notice"}
               </Link>
-              <Link href="/politique-de-confidentialite"
+              <Link href={`/politique-de-confidentialite?lang=${lang}`}
                 className="px-3 py-1 rounded border border-white/[0.08] text-gray-500
                            hover:text-white hover:border-white/20 transition-all duration-200">
                 {lang === "fr" ? "Confidentialité" : "Privacy Policy"}
               </Link>
-              <Link href="/a-propos"
+              <Link href={`/a-propos?lang=${lang}`}
                 className="px-3 py-1 rounded border border-white/[0.08] text-gray-500
                            hover:text-white hover:border-white/20 transition-all duration-200">
                 {lang === "fr" ? "À propos" : "About"}
